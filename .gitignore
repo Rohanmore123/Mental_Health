@@ -161,10 +161,29 @@ create_patients.py
 update_doctor_password.py
 update_secure_passwords.py
 
+# Database population and inspection scripts
+create_appointment.py
+create_appointments_batch.py
+create_appointments_sql.py
+display_aws_credentials.py
+display_credentials.py
+fix_enum.py
+init_aws_db.py
+init_db.py
+list_tables.py
+populate_aws_db.py
+populate_db.py
+seed_db.py
+show_data.py
+db_schema.py
+
 # Text files and temporary files
 *.txt
 !requirements.txt
 files_to_keep*.txt
+
+# Documentation
+!README_CREDENTIALS.md
 
 # Check files
 check_*.py
