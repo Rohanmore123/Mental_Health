@@ -1,0 +1,103 @@
+name: Build, Push to ECR, and Deploy to Elastic Beanstalk
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  build-and-push:
+    name: Build and Push to ECR
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+        
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+      
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: prasha-api
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build a docker container and push it to ECR
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+        
+        echo "Pushing image to ECR..."
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  deploy-to-eb:
+    name: Deploy to Elastic Beanstalk
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    
+    - name: Generate Dockerrun.aws.json
+      env:
+        ECR_IMAGE: ${{ needs.build-and-push.outputs.image }}
+      run: |
+        cat > Dockerrun.aws.json << EOF
+        {
+          "AWSEBDockerrunVersion": "1",
+          "Image": {
+            "Name": "$ECR_IMAGE",
+            "Update": "true"
+          },
+          "Ports": [
+            {
+              "ContainerPort": 8000,
+              "HostPort": 8000
+            }
+          ],
+          "Volumes": [],
+          "Logging": "/var/log/nginx"
+        }
+        EOF
+        
+        cat Dockerrun.aws.json
+    
+    - name: Generate application version name
+      id: version
+      run: echo "version=prasha-api-${{ github.sha }}" >> $GITHUB_OUTPUT
+    
+    - name: Deploy to Elastic Beanstalk
+      uses: einaregilsson/beanstalk-deploy@v21
+      with:
+        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        application_name: prasha-api
+        environment_name: prasha-api-env
+        version_label: ${{ steps.version.outputs.version }}
+        region: ${{ secrets.AWS_REGION }}
+        deployment_package: Dockerrun.aws.json
+        wait_for_environment_recovery: 300
