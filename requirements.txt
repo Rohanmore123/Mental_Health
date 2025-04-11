@@ -18,3 +18,4 @@ scikit-learn>=1.2.2
 matplotlib>=3.7.1
 python-decouple>=3.8
 jinja2>=3.0.0
+email-validator>=2.0.0
