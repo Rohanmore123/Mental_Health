@@ -160,3 +160,12 @@ create_patient_record.py
 create_patients.py
 update_doctor_password.py
 update_secure_passwords.py
+
+# Text files and temporary files
+*.txt
+!requirements.txt
+files_to_keep*.txt
+
+# Check files
+check_*.py
+*_check.py
