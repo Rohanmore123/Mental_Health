@@ -1,0 +1,203 @@
+name: Build, Push to ECR, and Deploy to AWS Fargate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  build-and-push:
+    name: Build and Push to ECR
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+        
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+      
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: prasha-api
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build a docker container and push it to ECR
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+        
+        echo "Pushing image to ECR..."
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  deploy-to-fargate:
+    name: Deploy to AWS Fargate
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    
+    - name: Deploy to AWS Fargate
+      id: deploy-fargate
+      env:
+        ECR_IMAGE: ${{ needs.build-and-push.outputs.image }}
+      run: |
+        # Check if ECS cluster exists
+        CLUSTER_EXISTS=$(aws ecs describe-clusters --clusters prasha-cluster --query "clusters[?clusterName=='prasha-cluster'].clusterName" --output text || echo "")
+        
+        if [ -z "$CLUSTER_EXISTS" ]; then
+          echo "Creating ECS cluster..."
+          aws ecs create-cluster --cluster-name prasha-cluster
+        else
+          echo "ECS cluster already exists"
+        fi
+        
+        # Create task definition
+        echo "Creating task definition..."
+        cat > task-definition.json << EOF
+        {
+          "family": "prasha-api",
+          "networkMode": "awsvpc",
+          "executionRoleArn": "arn:aws:iam::658304244296:role/ecsTaskExecutionRole",
+          "containerDefinitions": [
+            {
+              "name": "prasha-api",
+              "image": "$ECR_IMAGE",
+              "essential": true,
+              "portMappings": [
+                {
+                  "containerPort": 8000,
+                  "hostPort": 8000,
+                  "protocol": "tcp"
+                }
+              ],
+              "environment": [
+                {"name": "AWS_DB_USERNAME", "value": "postgres"},
+                {"name": "AWS_DB_PASSWORD", "value": "Prashaind2025"},
+                {"name": "AWS_DB_HOST", "value": "mental-health-db.c0j84sqwazto.us-east-1.rds.amazonaws.com"},
+                {"name": "AWS_DB_NAME", "value": "Prasha_care"},
+                {"name": "SECRET_KEY", "value": "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"},
+                {"name": "ACCESS_TOKEN_EXPIRE_MINUTES", "value": "30"}
+              ],
+              "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                  "awslogs-group": "/ecs/prasha-api",
+                  "awslogs-region": "${{ secrets.AWS_REGION }}",
+                  "awslogs-stream-prefix": "ecs"
+                }
+              }
+            }
+          ],
+          "requiresCompatibilities": [
+            "FARGATE"
+          ],
+          "cpu": "256",
+          "memory": "512"
+        }
+        EOF
+        
+        # Register task definition
+        TASK_DEFINITION_ARN=$(aws ecs register-task-definition --cli-input-json file://task-definition.json --query "taskDefinition.taskDefinitionArn" --output text)
+        echo "Task definition registered: $TASK_DEFINITION_ARN"
+        
+        # Check if service exists
+        SERVICE_EXISTS=$(aws ecs describe-services --cluster prasha-cluster --services prasha-service --query "services[?serviceName=='prasha-service'].serviceName" --output text || echo "")
+        
+        # Get default VPC and subnets
+        VPC_ID=$(aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" --query "Vpcs[0].VpcId" --output text)
+        SUBNET_IDS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query "Subnets[0:2].SubnetId" --output text | tr '\t' ',')
+        
+        # Create security group
+        SG_EXISTS=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=prasha-sg" --query "SecurityGroups[0].GroupId" --output text || echo "")
+        
+        if [ -z "$SG_EXISTS" ]; then
+          echo "Creating security group..."
+          SG_ID=$(aws ec2 create-security-group --group-name prasha-sg --description "Security group for Prasha API" --vpc-id $VPC_ID --query "GroupId" --output text)
+          
+          # Add inbound rules
+          aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 8000 --cidr 0.0.0.0/0
+        else
+          SG_ID=$SG_EXISTS
+          echo "Security group already exists: $SG_ID"
+        fi
+        
+        if [ -z "$SERVICE_EXISTS" ]; then
+          echo "Creating ECS service..."
+          
+          # Create load balancer
+          LB_EXISTS=$(aws elbv2 describe-load-balancers --names prasha-lb --query "LoadBalancers[0].LoadBalancerArn" --output text || echo "")
+          
+          if [ -z "$LB_EXISTS" ]; then
+            echo "Creating load balancer..."
+            LB_ARN=$(aws elbv2 create-load-balancer --name prasha-lb --subnets $(echo $SUBNET_IDS | tr ',' ' ') --security-groups $SG_ID --query "LoadBalancers[0].LoadBalancerArn" --output text)
+            
+            # Create target group
+            TG_ARN=$(aws elbv2 create-target-group --name prasha-tg --protocol HTTP --port 8000 --vpc-id $VPC_ID --target-type ip --health-check-path /health --query "TargetGroups[0].TargetGroupArn" --output text)
+            
+            # Create listener
+            LISTENER_ARN=$(aws elbv2 create-listener --load-balancer-arn $LB_ARN --protocol HTTP --port 80 --default-actions Type=forward,TargetGroupArn=$TG_ARN --query "Listeners[0].ListenerArn" --output text)
+          else
+            LB_ARN=$LB_EXISTS
+            TG_ARN=$(aws elbv2 describe-target-groups --names prasha-tg --query "TargetGroups[0].TargetGroupArn" --output text)
+            echo "Load balancer already exists: $LB_ARN"
+          fi
+          
+          # Create service
+          aws ecs create-service \
+            --cluster prasha-cluster \
+            --service-name prasha-service \
+            --task-definition $TASK_DEFINITION_ARN \
+            --desired-count 1 \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_IDS],securityGroups=[$SG_ID],assignPublicIp=ENABLED}" \
+            --load-balancers "targetGroupArn=$TG_ARN,containerName=prasha-api,containerPort=8000"
+          
+          # Get load balancer DNS name
+          LB_DNS=$(aws elbv2 describe-load-balancers --load-balancer-arns $LB_ARN --query "LoadBalancers[0].DNSName" --output text)
+          echo "::set-output name=service_url::http://$LB_DNS"
+          
+          echo "ECS service created successfully!"
+          echo "Service URL: http://$LB_DNS"
+        else
+          echo "Updating ECS service..."
+          
+          # Update service
+          aws ecs update-service \
+            --cluster prasha-cluster \
+            --service prasha-service \
+            --task-definition $TASK_DEFINITION_ARN \
+            --force-new-deployment
+          
+          # Get load balancer ARN
+          LB_ARN=$(aws elbv2 describe-load-balancers --names prasha-lb --query "LoadBalancers[0].LoadBalancerArn" --output text)
+          
+          # Get load balancer DNS name
+          LB_DNS=$(aws elbv2 describe-load-balancers --load-balancer-arns $LB_ARN --query "LoadBalancers[0].DNSName" --output text)
+          echo "::set-output name=service_url::http://$LB_DNS"
+          
+          echo "ECS service updated successfully!"
+          echo "Service URL: http://$LB_DNS"
+        fi
