@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Prasha Healthcare - Home{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="container">
+        <h1>Your Health, Our Priority</h1>
+        <p>Prasha Healthcare provides comprehensive healthcare solutions with AI-powered recommendations, personalized care, and easy access to medical professionals.</p>
+        <a href="/login" class="btn btn-primary btn-lg">Get Started</a>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="features" id="features">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2>Our Features</h2>
+            <p class="lead">Discover how Prasha Healthcare can help you manage your health effectively</p>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="feature-box">
+                    <i class="fas fa-user-md feature-icon"></i>
+                    <h3>Doctor Recommendations</h3>
+                    <p>Get personalized doctor recommendations based on your health needs, preferences, and medical history.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="feature-box">
+                    <i class="fas fa-robot feature-icon"></i>
+                    <h3>AI Health Assistant</h3>
+                    <p>Chat with our AI health assistant for quick answers to your health questions, available 24/7.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="feature-box">
+                    <i class="fas fa-chart-line feature-icon"></i>
+                    <h3>Mood Analysis</h3>
+                    <p>Track your emotional well-being with our advanced mood analysis and get personalized recommendations.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="feature-box">
+                    <i class="fas fa-calendar-check feature-icon"></i>
+                    <h3>Appointment Management</h3>
+                    <p>Schedule, reschedule, or cancel appointments with ease through our intuitive interface.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="feature-box">
+                    <i class="fas fa-file-medical feature-icon"></i>
+                    <h3>Medical Records</h3>
+                    <p>Access your medical history, prescriptions, and test results in one secure location.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="feature-box">
+                    <i class="fas fa-microphone feature-icon"></i>
+                    <h3>Voice Interaction</h3>
+                    <p>Interact with our platform using voice commands for a hands-free experience.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- About Section -->
+<section class="py-5 bg-light" id="about">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6 mb-4 mb-lg-0">
+                <h2>About Prasha Healthcare</h2>
+                <p class="lead">Revolutionizing healthcare with technology</p>
+                <p>Prasha Healthcare is dedicated to making healthcare more accessible, personalized, and efficient through innovative technology solutions. Our platform combines artificial intelligence, data analytics, and human expertise to provide the best possible care for our patients.</p>
+                <p>Founded by a team of healthcare professionals and technology experts, we understand the challenges faced by both patients and doctors in the healthcare system. Our mission is to bridge these gaps and create a seamless healthcare experience for everyone.</p>
+            </div>
+            <div class="col-lg-6">
+                <img src="https://via.placeholder.com/600x400" alt="About Prasha Healthcare" class="img-fluid rounded shadow">
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Contact Section -->
+<section class="py-5" id="contact">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2>Contact Us</h2>
+            <p class="lead">Have questions? We're here to help!</p>
+        </div>
+        
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow">
+                    <div class="card-body p-4">
+                        <form>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="name" class="form-label">Name</label>
+                                    <input type="text" class="form-control" id="name" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="subject" class="form-label">Subject</label>
+                                <input type="text" class="form-control" id="subject" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="message" class="form-label">Message</label>
+                                <textarea class="form-control" id="message" rows="5" required></textarea>
+                            </div>
+                            <div class="text-center">
+                                <button type="submit" class="btn btn-primary px-4 py-2">Send Message</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

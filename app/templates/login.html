@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Prasha Healthcare - Login{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="login-container">
+        <h2>Login to Your Account</h2>
+
+        <!-- Alert Messages -->
+        <div class="alert alert-danger" id="error-message" style="display: none;"></div>
+        <div class="alert alert-success" id="success-message" style="display: none;"></div>
+
+        <!-- Login Form -->
+        <form id="login-form">
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" required>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">I am a:</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="user-type" id="patient-type" value="patient" checked>
+                    <label class="form-check-label" for="patient-type">
+                        Patient
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="user-type" id="doctor-type" value="doctor">
+                    <label class="form-check-label" for="doctor-type">
+                        Doctor
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Login</button>
+
+            <div class="mt-3 text-center">
+                <a href="#" class="text-decoration-none">Forgot Password?</a>
+            </div>
+
+            <hr class="my-4">
+
+            <div class="text-center">
+                <p>Login with your mobile number</p>
+                <a href="/mobile-login" class="btn btn-outline-primary mb-3">
+                    <i class="fas fa-mobile-alt me-2"></i>Login with OTP
+                </a>
+            </div>
+
+            <div class="text-center">
+                <p>Don't have an account?</p>
+                <a href="#" class="btn btn-outline-primary">Register Now</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check for URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const error = urlParams.get('error');
+
+        if (error === 'session_expired') {
+            showError('Your session has expired. Please login again.');
+        }
+
+        // Add event listener to login form
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            console.log('Login form found, adding submit event listener');
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const userType = document.querySelector('input[name="user-type"]:checked').value;
+
+                console.log(`Form submitted with email: ${email}, userType: ${userType}`);
+                login(email, password, userType);
+            });
+        } else {
+            console.error('Login form not found!');
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,610 @@
+{% extends "base.html" %}
+
+{% block title %}Mobile Login - Prasha Healthcare{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm border-0 mt-5">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <img src="/static/img/logo.png" alt="Prasha Healthcare" class="img-fluid mb-3" style="max-height: 80px;">
+                        <h2 class="fw-bold">Mobile Login</h2>
+                        <p class="text-muted">Enter your mobile number to receive an OTP</p>
+                    </div>
+
+                    <!-- Alert Messages -->
+                    <div class="alert alert-danger" id="error-message" style="display: none;"></div>
+                    <div class="alert alert-success" id="success-message" style="display: none;"></div>
+
+                    <!-- Mobile Number Form -->
+                    <div id="mobile-form">
+                        <div class="mb-3">
+                            <label for="mobile-number" class="form-label">Mobile Number</label>
+                            <div class="input-group">
+                                <span class="input-group-text">+</span>
+                                <input type="tel" class="form-control" id="mobile-number" placeholder="Enter your mobile number with country code" required>
+                            </div>
+                            <div class="form-text">Include your country code (e.g., 1 for US, 91 for India)</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="user-type" class="form-label">I am a</label>
+                            <select class="form-select" id="user-type" required>
+                                <option value="patient">Patient</option>
+                                <option value="doctor">Doctor</option>
+                            </select>
+                        </div>
+                        <button type="button" id="send-otp-btn" class="btn btn-primary w-100">
+                            Send OTP
+                        </button>
+                        <div class="text-center mt-3">
+                            <a href="/login" class="text-decoration-none">Login with Email</a>
+                        </div>
+                    </div>
+
+                    <!-- OTP Verification Form -->
+                    <div id="otp-form" style="display: none;">
+                        <div class="mb-4">
+                            <label for="otp" class="form-label">Enter OTP</label>
+                            <div class="otp-input-container d-flex justify-content-between">
+                                <input type="text" class="form-control otp-input" maxlength="1" data-index="1">
+                                <input type="text" class="form-control otp-input" maxlength="1" data-index="2">
+                                <input type="text" class="form-control otp-input" maxlength="1" data-index="3">
+                                <input type="text" class="form-control otp-input" maxlength="1" data-index="4">
+                                <input type="text" class="form-control otp-input" maxlength="1" data-index="5">
+                                <input type="text" class="form-control otp-input" maxlength="1" data-index="6">
+                            </div>
+                            <div class="form-text text-center">
+                                OTP sent to <span id="masked-mobile"></span>
+                            </div>
+                        </div>
+                        <button type="button" id="verify-otp-btn" class="btn btn-primary w-100">
+                            Verify OTP
+                        </button>
+                        <div class="text-center mt-3">
+                            <span id="resend-timer" class="d-block mb-2">Resend OTP in <span id="timer">60</span> seconds</span>
+                            <button type="button" id="resend-otp-btn" class="btn btn-link p-0" disabled>
+                                Resend OTP
+                            </button>
+                        </div>
+                        <div class="text-center mt-3">
+                            <button type="button" id="back-to-mobile-btn" class="btn btn-link p-0">
+                                Change Mobile Number
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Registration Form (for new users) -->
+                    <div id="registration-form" style="display: none;">
+                        <div class="mb-3">
+                            <label for="first-name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="first-name" placeholder="Enter your first name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="last-name" class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="last-name" placeholder="Enter your last name" required>
+                        </div>
+                        <button type="button" id="register-btn" class="btn btn-primary w-100">
+                            Complete Registration
+                        </button>
+                        <div class="text-center mt-3">
+                            <button type="button" id="back-to-otp-btn" class="btn btn-link p-0">
+                                Back to OTP Verification
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .otp-input-container {
+        gap: 8px;
+    }
+
+    .otp-input {
+        width: 45px;
+        height: 45px;
+        text-align: center;
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+
+    /* Remove spinner from number inputs */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    input[type=number] {
+        -moz-appearance: textfield;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Global variables
+    let mobileNumber = '';
+    let otpValue = '';
+    let userType = '';
+    let timerInterval = null;
+
+    // DOM elements
+    const mobileForm = document.getElementById('mobile-form');
+    const otpForm = document.getElementById('otp-form');
+    const registrationForm = document.getElementById('registration-form');
+    const mobileNumberInput = document.getElementById('mobile-number');
+    const userTypeSelect = document.getElementById('user-type');
+    const sendOtpBtn = document.getElementById('send-otp-btn');
+    const verifyOtpBtn = document.getElementById('verify-otp-btn');
+    const resendOtpBtn = document.getElementById('resend-otp-btn');
+    const backToMobileBtn = document.getElementById('back-to-mobile-btn');
+    const maskedMobileSpan = document.getElementById('masked-mobile');
+    const timerSpan = document.getElementById('timer');
+    const otpInputs = document.querySelectorAll('.otp-input');
+    const registerBtn = document.getElementById('register-btn');
+    const backToOtpBtn = document.getElementById('back-to-otp-btn');
+    const firstNameInput = document.getElementById('first-name');
+    const lastNameInput = document.getElementById('last-name');
+
+    // Error and success messages
+    const errorMessage = document.getElementById('error-message');
+    const successMessage = document.getElementById('success-message');
+
+    // Initialize the page
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set up event listeners
+        sendOtpBtn.addEventListener('click', handleSendOtp);
+        verifyOtpBtn.addEventListener('click', handleVerifyOtp);
+        resendOtpBtn.addEventListener('click', handleResendOtp);
+        backToMobileBtn.addEventListener('click', backToMobileForm);
+        registerBtn.addEventListener('click', handleRegistration);
+        backToOtpBtn.addEventListener('click', backToOtpForm);
+
+        // Set up OTP input behavior
+        otpInputs.forEach(input => {
+            input.addEventListener('keyup', handleOtpInput);
+            input.addEventListener('keydown', handleOtpKeyDown);
+            input.addEventListener('paste', handleOtpPaste);
+        });
+    });
+
+    // Handle sending OTP
+    async function handleSendOtp() {
+        // Clear previous messages
+        clearMessages();
+
+        // Get mobile number and user type
+        mobileNumber = mobileNumberInput.value.trim();
+        if (!mobileNumber.startsWith('+')) {
+            mobileNumber = '+' + mobileNumber;
+        }
+        userType = userTypeSelect.value;
+
+        console.log('Sending OTP to:', mobileNumber);
+
+        // Validate mobile number
+        if (!isValidMobileNumber(mobileNumber)) {
+            showError('Please enter a valid mobile number with country code');
+            return;
+        }
+
+        // Show loading state
+        sendOtpBtn.disabled = true;
+        sendOtpBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sending...';
+
+        try {
+            // Call API to send OTP
+            const response = await apiCall('/otp-auth/send', 'POST', {
+                mobile_number: mobileNumber
+            });
+
+            console.log('OTP sent successfully:', response);
+
+            // Show OTP form
+            mobileForm.style.display = 'none';
+            otpForm.style.display = 'block';
+
+            // Set masked mobile number
+            maskedMobileSpan.textContent = maskMobileNumber(mobileNumber);
+
+            // Focus on first OTP input
+            otpInputs[0].focus();
+
+            // Start timer
+            startResendTimer();
+
+            // Show success message
+            showSuccess('OTP sent successfully');
+        } catch (error) {
+            console.error('Error sending OTP:', error);
+            showError(error.message || 'Failed to send OTP. Please try again.');
+
+            // Reset button
+            sendOtpBtn.disabled = false;
+            sendOtpBtn.innerHTML = 'Send OTP';
+        }
+    }
+
+    // Handle OTP verification
+    async function handleVerifyOtp() {
+        // Clear previous messages
+        clearMessages();
+
+        // Get OTP value
+        otpValue = Array.from(otpInputs).map(input => input.value).join('');
+
+        console.log('Verifying OTP:', { mobileNumber, otpValue });
+
+        // Validate OTP
+        if (otpValue.length !== 6 || !/^\d+$/.test(otpValue)) {
+            showError('Please enter a valid 6-digit OTP');
+            return;
+        }
+
+        // Show loading state
+        verifyOtpBtn.disabled = true;
+        verifyOtpBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Verifying...';
+
+        try {
+            // Make sure mobile number starts with +
+            if (!mobileNumber.startsWith('+')) {
+                mobileNumber = '+' + mobileNumber;
+                console.log('Added + to mobile number:', mobileNumber);
+            }
+
+            // Log the request data
+            const requestData = {
+                mobile_number: mobileNumber,
+                otp: otpValue
+            };
+            console.log('OTP verification request data:', requestData);
+
+            // Call API to verify OTP
+            const response = await apiCall('/otp-auth/verify', 'POST', requestData);
+
+            // Handle successful verification
+            console.log('OTP verification response:', response);
+
+            // Check if response is valid
+            if (!response) {
+                console.error('Response is null or undefined');
+                throw new Error('Invalid response from server');
+            }
+
+            // Check for access token (already registered user)
+            if (response.access_token) {
+                console.log('User is already registered, has access token');
+
+                // Store auth data
+                localStorage.setItem('token', response.access_token);
+                localStorage.setItem('userId', response.user_id);
+                localStorage.setItem('userType', userType);
+
+                if (response.name) {
+                    localStorage.setItem('userName', response.name);
+                }
+
+                // Show success message
+                showSuccess('OTP verified successfully. Redirecting...');
+
+                // Redirect to dashboard
+                setTimeout(() => {
+                    window.location.href = userType === 'doctor' ? '/doctor-dashboard' : '/patient-dashboard';
+                }, 1500);
+            }
+            // Check if registration is needed
+            else if (response.needs_registration === true) {
+                console.log('Registration needed, showing registration form');
+
+                // Store OTP and mobile number for registration
+                otpValue = response.otp;
+                mobileNumber = response.mobile_number;
+
+                // Show registration form for new users
+                otpForm.style.display = 'none';
+                registrationForm.style.display = 'block';
+
+                // Show success message
+                showSuccess('OTP verified successfully. Please complete your registration.');
+            }
+            // Handle unexpected response format
+            else {
+                console.error('Invalid response format:', response);
+                throw new Error('Invalid response format from server');
+            }
+        } catch (error) {
+            console.error('Error verifying OTP:', error);
+            console.error('Error details:', JSON.stringify(error, null, 2));
+
+            if (error.status === 401) {
+                showError('Invalid OTP. Please try again.');
+            } else {
+                showError(error.message || 'Failed to verify OTP. Please try again.');
+            }
+
+            // Reset button
+            verifyOtpBtn.disabled = false;
+            verifyOtpBtn.innerHTML = 'Verify OTP';
+        }
+    }
+
+    // Handle user registration
+    async function handleRegistration() {
+        // Clear previous messages
+        clearMessages();
+
+        // Get form values
+        const firstName = firstNameInput.value.trim();
+        const lastName = lastNameInput.value.trim();
+
+        // Validate form
+        if (!firstName) {
+            showError('Please enter your first name');
+            return;
+        }
+
+        if (!lastName) {
+            showError('Please enter your last name');
+            return;
+        }
+
+        // Show loading state
+        registerBtn.disabled = true;
+        registerBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Registering...';
+
+        try {
+            // Call API to register user
+            const response = await apiCall('/otp-auth/register', 'POST', {
+                mobile_number: mobileNumber,
+                otp: otpValue,
+                first_name: firstName,
+                last_name: lastName
+            });
+
+            // Handle successful registration
+            if (response.access_token) {
+                // Store auth data
+                localStorage.setItem('token', response.access_token);
+                localStorage.setItem('userId', response.user_id);
+                localStorage.setItem('userType', 'patient'); // New users are always patients
+                localStorage.setItem('userName', `${firstName} ${lastName}`);
+
+                // Show success message
+                showSuccess('Registration successful. Redirecting...');
+
+                // Redirect to dashboard
+                setTimeout(() => {
+                    window.location.href = '/patient-dashboard';
+                }, 1500);
+            } else {
+                throw new Error('Registration failed');
+            }
+        } catch (error) {
+            console.error('Error registering user:', error);
+            showError(error.message || 'Failed to register. Please try again.');
+
+            // Reset button
+            registerBtn.disabled = false;
+            registerBtn.innerHTML = 'Complete Registration';
+        }
+    }
+
+    // Handle resending OTP
+    function handleResendOtp() {
+        // Clear timer
+        clearInterval(timerInterval);
+
+        // Disable resend button
+        resendOtpBtn.disabled = true;
+
+        // Call send OTP function
+        handleSendOtp();
+    }
+
+    // Handle OTP input
+    function handleOtpInput(event) {
+        const input = event.target;
+        const index = parseInt(input.dataset.index);
+
+        // Move to next input if value is entered
+        if (input.value && index < 6) {
+            otpInputs[index].focus();
+        }
+
+        // Collect OTP value
+        otpValue = Array.from(otpInputs).map(input => input.value).join('');
+
+        // Auto-submit if all digits are entered
+        if (otpValue.length === 6) {
+            verifyOtpBtn.focus();
+        }
+    }
+
+    // Handle OTP keydown
+    function handleOtpKeyDown(event) {
+        const input = event.target;
+        const index = parseInt(input.dataset.index) - 1;
+
+        // Handle backspace
+        if (event.key === 'Backspace') {
+            if (!input.value && index > 0) {
+                otpInputs[index - 1].focus();
+                otpInputs[index - 1].value = '';
+            }
+        }
+    }
+
+    // Handle OTP paste
+    function handleOtpPaste(event) {
+        event.preventDefault();
+
+        // Get pasted text
+        const pastedText = (event.clipboardData || window.clipboardData).getData('text');
+
+        // Check if pasted text is a 6-digit number
+        if (/^\d{6}$/.test(pastedText)) {
+            // Fill OTP inputs
+            for (let i = 0; i < 6; i++) {
+                otpInputs[i].value = pastedText[i];
+            }
+
+            // Focus on verify button
+            verifyOtpBtn.focus();
+        }
+    }
+
+    // Start resend timer
+    function startResendTimer() {
+        // Reset timer
+        let seconds = 60;
+        timerSpan.textContent = seconds;
+
+        // Enable/disable resend button
+        resendOtpBtn.disabled = true;
+
+        // Clear previous interval
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+
+        // Start new interval
+        timerInterval = setInterval(() => {
+            seconds--;
+            timerSpan.textContent = seconds;
+
+            if (seconds <= 0) {
+                clearInterval(timerInterval);
+                resendOtpBtn.disabled = false;
+            }
+        }, 1000);
+    }
+
+    // Go back to mobile form
+    function backToMobileForm() {
+        // Clear timer
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+
+        // Clear OTP inputs
+        otpInputs.forEach(input => {
+            input.value = '';
+        });
+
+        // Show mobile form
+        otpForm.style.display = 'none';
+        registrationForm.style.display = 'none';
+        mobileForm.style.display = 'block';
+
+        // Reset button
+        sendOtpBtn.disabled = false;
+        sendOtpBtn.innerHTML = 'Send OTP';
+
+        // Clear messages
+        clearMessages();
+    }
+
+    // Go back to OTP form
+    function backToOtpForm() {
+        // Show OTP form
+        registrationForm.style.display = 'none';
+        otpForm.style.display = 'block';
+
+        // Reset button
+        verifyOtpBtn.disabled = false;
+        verifyOtpBtn.innerHTML = 'Verify OTP';
+
+        // Clear messages
+        clearMessages();
+    }
+
+    // Validate mobile number
+    function isValidMobileNumber(number) {
+        return /^\+[1-9]\d{1,14}$/.test(number);
+    }
+
+    // Mask mobile number for display
+    function maskMobileNumber(number) {
+        if (number.length <= 4) {
+            return number;
+        }
+
+        const visiblePart = number.slice(-4);
+        const maskedPart = number.slice(0, -4).replace(/./g, '*');
+
+        return maskedPart + visiblePart;
+    }
+
+    // Show error message
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+        successMessage.style.display = 'none';
+
+        // Scroll to error message
+        errorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Show success message
+    function showSuccess(message) {
+        successMessage.textContent = message;
+        successMessage.style.display = 'block';
+        errorMessage.style.display = 'none';
+
+        // Scroll to success message
+        successMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Clear messages
+    function clearMessages() {
+        errorMessage.style.display = 'none';
+        successMessage.style.display = 'none';
+    }
+
+    // API call helper function
+    async function apiCall(endpoint, method = 'GET', data = null) {
+        const url = `/api/v1${endpoint}`;
+
+        console.log(`Making API call to ${url}`, { method, data });
+
+        const options = {
+            method,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
+
+        if (data) {
+            options.body = JSON.stringify(data);
+        }
+
+        try {
+            const response = await fetch(url, options);
+            console.log(`Response status:`, response.status);
+
+            const result = await response.json();
+            console.log(`Response data:`, result);
+
+            if (!response.ok) {
+                throw {
+                    status: response.status,
+                    message: result.detail || 'API request failed'
+                };
+            }
+
+            return result;
+        } catch (error) {
+            console.error(`API Error (${url}):`, error);
+            throw error;
+        }
+    }
+</script>
+{% endblock %}

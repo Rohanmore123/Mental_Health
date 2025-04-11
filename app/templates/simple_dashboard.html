@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Simple Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Simple Dashboard</h2>
+                </div>
+                <div class="card-body">
+                    <h3>Welcome, <span id="user-name">User</span>!</h3>
+                    <p>This is a simple dashboard to test authentication.</p>
+                    <div id="token-info" class="mt-4">
+                        <h4>Authentication Information:</h4>
+                        <pre id="auth-details" style="background-color: #f5f5f5; padding: 10px; border-radius: 5px;"></pre>
+                    </div>
+                    <div class="mt-4">
+                        <button id="logout-btn" class="btn btn-danger">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            console.log('Simple dashboard loading...');
+            
+            // Check if token exists
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No token found');
+                showError('You are not logged in. Redirecting to login page...');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+                return;
+            }
+            
+            // Display token information
+            const authDetails = document.getElementById('auth-details');
+            if (authDetails) {
+                const userInfo = {
+                    token: token ? token.substring(0, 20) + '...' : 'Not found',
+                    userType: localStorage.getItem('userType') || 'Not found',
+                    userId: localStorage.getItem('userId') || 'Not found',
+                    userName: localStorage.getItem('userName') || 'Not found',
+                    userEmail: localStorage.getItem('userEmail') || 'Not found',
+                    userRoles: localStorage.getItem('userRoles') || 'Not found',
+                    loginTime: localStorage.getItem('loginTime') || 'Not found'
+                };
+                
+                authDetails.textContent = JSON.stringify(userInfo, null, 2);
+            }
+            
+            // Update user name
+            const userName = localStorage.getItem('userName');
+            const userNameElement = document.getElementById('user-name');
+            if (userNameElement && userName) {
+                const userType = localStorage.getItem('userType');
+                if (userType === 'doctor') {
+                    userNameElement.textContent = 'Dr. ' + userName;
+                } else {
+                    userNameElement.textContent = userName;
+                }
+            }
+            
+            // Add logout button handler
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function() {
+                    console.log('Logging out...');
+                    // Clear all user data
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('userType');
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('userEmail');
+                    localStorage.removeItem('userName');
+                    localStorage.removeItem('userRoles');
+                    localStorage.removeItem('loginTime');
+                    
+                    // Redirect to login page
+                    window.location.href = '/login';
+                });
+            }
+            
+        } catch (error) {
+            console.error('Error initializing simple dashboard:', error);
+            document.body.innerHTML = `
+                <div style="padding: 20px; margin: 20px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px;">
+                    <h3>Error Loading Dashboard</h3>
+                    <p>${error.message}</p>
+                    <p>Please <a href="/login">login again</a> or contact support.</p>
+                    <pre>${error.stack}</pre>
+                </div>
+            `;
+        }
+    });
+    
+    function showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'alert alert-danger';
+        errorDiv.textContent = message;
+        document.querySelector('.card-body').prepend(errorDiv);
+    }
+</script>
+{% endblock %}

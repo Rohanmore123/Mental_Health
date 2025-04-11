@@ -1,0 +1,439 @@
+{% extends "base.html" %}
+
+{% block title %}Patient Dashboard - Prasha Healthcare{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+        <i class="fas fa-user-circle me-1"></i> <span id="user-name">Patient</span>
+    </a>
+    <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>Profile</a></li>
+        <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="#" id="logout-btn"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+    </ul>
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Alert Messages -->
+    <div class="alert alert-danger" id="error-message" style="display: none;"></div>
+    <div class="alert alert-success" id="success-message" style="display: none;"></div>
+
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1>Welcome, <span id="user-name">Patient</span></h1>
+        <p class="text-muted">Here's an overview of your health information</p>
+    </div>
+
+    <!-- Dashboard Stats -->
+    <div class="dashboard-stats">
+        <div class="stat-card">
+            <p>Upcoming Appointments</p>
+            <h3 id="appointment-count">0</h3>
+        </div>
+        <div class="stat-card">
+            <p>Prescriptions</p>
+            <h3 id="prescription-count">0</h3>
+        </div>
+        <div class="stat-card">
+            <p>Health Score</p>
+            <h3 id="health-score">N/A</h3>
+        </div>
+        <div class="stat-card">
+            <p>Mood Trend</p>
+            <h3 id="mood-trend">-</h3>
+        </div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="row">
+        <!-- Appointments -->
+        <div class="col-lg-6 mb-4">
+            <div class="dashboard-card">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3><i class="fas fa-calendar-check me-2"></i>Upcoming Appointments</h3>
+                    <a href="#" class="btn btn-sm btn-primary">Book New</a>
+                </div>
+                <div id="appointments-list">
+                    <p class="text-center text-muted">Loading appointments...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Doctor Recommendations -->
+        <div class="col-lg-6 mb-4">
+            <div class="dashboard-card">
+                <h3><i class="fas fa-user-md me-2"></i>Recommended Doctors</h3>
+                <div id="doctor-recommendations">
+                    <p class="text-center text-muted">Loading recommendations...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mood Analysis -->
+        <div class="col-lg-6 mb-4">
+            <div class="dashboard-card">
+                <h3><i class="fas fa-chart-line me-2"></i>Mood Analysis</h3>
+                <div id="mood-analysis">
+                    <p class="text-center text-muted">Loading mood data...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced Chat Interface -->
+        <div class="col-lg-6 mb-4">
+            <div class="dashboard-card">
+                <div class="chat-header">
+                    <h3><i class="fas fa-comments me-2"></i>Chat</h3>
+                    <div class="btn-group chat-type-toggle" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-primary active" id="ai-chat-btn">AI Assistant</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="doctor-chat-btn">Doctors</button>
+                    </div>
+                </div>
+                <div class="chat-interface">
+                    <!-- Chat Contacts (visible in doctor chat mode) -->
+                    <div class="chat-contacts" id="chat-contacts" style="display: none;">
+                        <div class="chat-contacts-header">
+                            <input type="text" class="form-control form-control-sm" placeholder="Search contacts..." id="contact-search">
+                        </div>
+                        <div class="chat-contacts-list" id="chat-contacts-list">
+                            <!-- Contacts will be added here -->
+                            <div class="text-center p-3 text-muted">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Loading contacts...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Messages -->
+                    <div class="chat-content">
+                        <div class="chat-recipient-info">
+                            <img src="/static/img/ai-avatar.png" alt="AI" class="chat-avatar" id="chat-avatar">
+                            <div>
+                                <h6 class="mb-0" id="chat-recipient-name">AI Health Assistant</h6>
+                                <small class="text-muted" id="chat-recipient-status">Always available</small>
+                            </div>
+                        </div>
+                        <div class="chat-messages" id="chat-messages">
+                            <!-- Messages will be added here -->
+                            <div class="message ai-message">
+                                <div class="message-content">
+                                    <p>Hello! I'm your AI health assistant. How can I help you today?</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chat-input">
+                            <form id="chat-form" class="d-flex">
+                                <input type="text" id="chat-message" class="form-control me-2" placeholder="Type your message...">
+                                <button type="button" class="btn btn-light btn-sm me-2" id="voice-input-btn">
+                                    <i class="fas fa-microphone"></i>
+                                </button>
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Chat Interface Styles */
+    .chat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .chat-interface {
+        display: flex;
+        height: 450px;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+
+    .chat-contacts {
+        width: 280px;
+        border-right: 1px solid #dee2e6;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat-contacts-header {
+        padding: 10px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .chat-contacts-list {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .chat-contact {
+        padding: 10px 15px;
+        border-bottom: 1px solid #f0f0f0;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        display: flex;
+        align-items: center;
+    }
+
+    .chat-contact:hover {
+        background-color: #f8f9fa;
+    }
+
+    .chat-contact.active {
+        background-color: #e9f5ff;
+    }
+
+    .chat-contact-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        margin-right: 10px;
+        object-fit: cover;
+    }
+
+    .chat-contact-info {
+        flex: 1;
+    }
+
+    .chat-contact-name {
+        font-weight: 500;
+        margin-bottom: 2px;
+    }
+
+    .chat-contact-last-message {
+        font-size: 0.8rem;
+        color: #6c757d;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 180px;
+    }
+
+    .chat-contact-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+    }
+
+    .chat-contact-time {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+
+    .chat-contact-badge {
+        background-color: var(--primary-color);
+        color: white;
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 10px;
+        margin-top: 3px;
+    }
+
+    .chat-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat-recipient-info {
+        padding: 10px 15px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        align-items: center;
+    }
+
+    .chat-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        margin-right: 10px;
+        object-fit: cover;
+    }
+
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 15px;
+        background-color: #f8f9fa;
+    }
+
+    .message {
+        margin-bottom: 15px;
+        display: flex;
+    }
+
+    .user-message {
+        justify-content: flex-end;
+    }
+
+    .message-content {
+        max-width: 80%;
+        padding: 10px 15px;
+        border-radius: 10px;
+        position: relative;
+    }
+
+    .user-message .message-content {
+        background-color: var(--primary-color);
+        color: white;
+    }
+
+    .ai-message .message-content,
+    .doctor-message .message-content {
+        background-color: #e9ecef;
+        color: #212529;
+    }
+
+    .message-time {
+        font-size: 0.7rem;
+        color: #6c757d;
+        margin-top: 5px;
+        text-align: right;
+    }
+
+    .chat-input {
+        padding: 10px;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .chat-input form {
+        display: flex;
+        align-items: center;
+    }
+
+    .chat-input input {
+        flex: 1;
+    }
+
+    /* Chat start message */
+    .chat-start-message {
+        text-align: center;
+        padding: 20px;
+        color: #6c757d;
+    }
+
+    .chat-start-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        margin-bottom: 10px;
+    }
+
+    /* Empty state */
+    .chat-empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #6c757d;
+        padding: 20px;
+        text-align: center;
+    }
+
+    .chat-empty-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        color: #dee2e6;
+    }
+
+    /* Legacy chat container styles for compatibility */
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 400px;
+    }
+
+    .appointment-item {
+        display: flex;
+        padding: 15px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .appointment-date {
+        min-width: 100px;
+        text-align: center;
+        padding-right: 15px;
+    }
+
+    .appointment-details {
+        flex: 1;
+    }
+
+    .doctor-card, .patient-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .doctor-info, .patient-info {
+        flex: 1;
+    }
+
+    .doctor-actions, .patient-actions {
+        min-width: 120px;
+        text-align: right;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/chat.js"></script>
+<script>
+    // Production-ready error handling
+    window.addEventListener('error', function(event) {
+        console.error('Application error:', event.error);
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            console.log('Patient dashboard loading...');
+            // Prevent automatic redirection
+            window.onbeforeunload = function() {
+                return 'Are you sure you want to leave?';
+            };
+
+            // Authentication check is done by requireAuth()
+
+            // Check if user is logged in
+            requireAuth();
+
+            // Initialize dashboard
+            initializeDashboard();
+
+            // Remove the prevention after successful initialization
+            setTimeout(() => {
+                window.onbeforeunload = null;
+            }, 5000);
+
+            // Chat interface is initialized in chat.js
+        } catch (error) {
+            console.error('Error initializing patient dashboard:', error);
+            document.body.innerHTML = `
+                <div style="padding: 20px; margin: 20px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px;">
+                    <h3>Error Loading Dashboard</h3>
+                    <p>An error occurred while loading the dashboard.</p>
+                    <p>Please <a href="/login">login again</a> or contact support.</p>
+                </div>
+            `;
+        }
+    });
+</script>
+{% endblock %}
