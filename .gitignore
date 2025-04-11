@@ -130,7 +130,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Project specific
+# Project specific - Debug and Test files
 check_gender_enum.py
 check_password_storage.py
 check_user_records.py
@@ -149,3 +149,14 @@ test_otp_simple.py
 app/templates/direct_test.html
 app/templates/simple_test.html
 app/templates/test_otp.html
+
+# Create and Update scripts (one-time use)
+create_appointments.py
+create_chat_tables.py
+create_database.sql
+create_doctors.py
+create_otp_table.py
+create_patient_record.py
+create_patients.py
+update_doctor_password.py
+update_secure_passwords.py
