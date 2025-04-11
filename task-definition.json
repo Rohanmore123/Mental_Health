@@ -1,0 +1,40 @@
+{
+  "family": "prasha-api",
+  "networkMode": "awsvpc",
+  "executionRoleArn": "arn:aws:iam::658304244296:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "prasha-api",
+      "image": "658304244296.dkr.ecr.us-east-1.amazonaws.com/prasha-api:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "AWS_DB_USERNAME", "value": "postgres"},
+        {"name": "AWS_DB_PASSWORD", "value": "Prashaind2025"},
+        {"name": "AWS_DB_HOST", "value": "mental-health-db.c0j84sqwazto.us-east-1.rds.amazonaws.com"},
+        {"name": "AWS_DB_NAME", "value": "Prasha_care"},
+        {"name": "SECRET_KEY", "value": "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"},
+        {"name": "ACCESS_TOKEN_EXPIRE_MINUTES", "value": "30"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/prasha-api",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "256",
+  "memory": "512"
+}
