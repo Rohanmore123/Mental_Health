@@ -221,8 +221,12 @@ async function getPatientAppointments() {
     return await apiCall('/patients/appointments');
 }
 
-async function getDoctorRecommendations(patientId) {
-    return await apiCall('/doctors/recommend', 'POST', { patient_id: patientId });
+async function getDoctorRecommendations(patientId, filters = null) {
+    const requestBody = { patient_id: patientId };
+    if (filters) {
+        requestBody.filters = filters;
+    }
+    return await apiCall('/doctors/recommend', 'POST', requestBody);
 }
 
 async function getMoodAnalysis(patientId) {
@@ -306,11 +310,21 @@ async function initializePatientDashboard() {
             console.log('User profile:', userProfile);
 
             if (userProfile && userProfile.patient_id) {
+                // Set patient ID for filters
+                if (typeof setPatientIdForFilters === 'function') {
+                    setPatientIdForFilters(userProfile.patient_id);
+                }
+
                 // Load doctor recommendations using patient ID
                 console.log('Loading doctor recommendations for patient ID:', userProfile.patient_id);
                 const recommendations = await getDoctorRecommendations(userProfile.patient_id);
                 console.log('Recommendations:', recommendations);
                 displayDoctorRecommendations(recommendations);
+
+                // Initialize doctor filters if function exists
+                if (typeof initializeDoctorFilters === 'function') {
+                    initializeDoctorFilters();
+                }
             } else {
                 console.error('No patient ID found in user profile');
                 showError('Could not load doctor recommendations: Patient ID not found');
@@ -459,19 +473,43 @@ function displayDoctorRecommendations(recommendations) {
     const container = document.getElementById('doctor-recommendations');
     if (!container) return;
 
-    if (!recommendations || !recommendations.doctors || recommendations.doctors.length === 0) {
-        container.innerHTML = '<p>No doctor recommendations available.</p>';
+    // Handle different response formats
+    let doctors = [];
+
+    if (Array.isArray(recommendations)) {
+        // Direct array of doctors from recommendations endpoint
+        doctors = recommendations;
+    } else if (recommendations && recommendations.doctors && Array.isArray(recommendations.doctors)) {
+        // Object with doctors array from recommend endpoint
+        doctors = recommendations.doctors;
+    } else {
+        container.innerHTML = '<p class="text-center">No doctor recommendations available.</p>';
         return;
     }
 
+    if (doctors.length === 0) {
+        container.innerHTML = '<p class="text-center">No doctor recommendations available.</p>';
+        return;
+    }
+
+    // Use the enhanced display if available
+    if (typeof displayEnhancedDoctorRecommendations === 'function') {
+        displayEnhancedDoctorRecommendations(doctors);
+        return;
+    }
+
+    // Fallback to basic display
     let html = '';
-    recommendations.doctors.forEach(doctor => {
+    doctors.forEach(doctor => {
+        const name = doctor.name || `Dr. ${doctor.first_name || ''} ${doctor.last_name || ''}`;
+        const fee = doctor.consultation_fee || 'N/A';
+
         html += `
             <div class="doctor-card">
                 <div class="doctor-info">
-                    <h4>Dr. ${doctor.first_name} ${doctor.last_name}</h4>
+                    <h4>${name}</h4>
                     <p>${doctor.specialization || 'General Practitioner'}</p>
-                    <p><i class="fas fa-money-bill-wave"></i> $${doctor.consultation_fee}</p>
+                    <p><i class="fas fa-money-bill-wave"></i> $${fee}</p>
                 </div>
                 <div class="doctor-actions">
                     <button class="btn btn-sm btn-primary" onclick="bookAppointment('${doctor.doctor_id}')">

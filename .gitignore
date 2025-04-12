@@ -46,6 +46,9 @@ yarn-error.log*
 *.sqlite3
 *.db
 
+# Database migrations
+migrations/
+
 # Environment variables
 .env
 .env.local
@@ -58,6 +61,10 @@ debug_*.py
 *debug*.py
 test_*.py
 *test*.py
+
+# Test directories
+tests/
+test/
 
 # Temporary files
 *.tmp

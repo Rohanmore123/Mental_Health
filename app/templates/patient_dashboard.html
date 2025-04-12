@@ -66,7 +66,80 @@
         <!-- Doctor Recommendations -->
         <div class="col-lg-6 mb-4">
             <div class="dashboard-card">
-                <h3><i class="fas fa-user-md me-2"></i>Recommended Doctors</h3>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3><i class="fas fa-user-md me-2"></i>Recommended Doctors</h3>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" id="filter-doctors-btn" onclick="toggleFilterPanel()">
+                            <i class="fas fa-filter me-1"></i>Filter
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Doctor Filter Panel -->
+                <div id="doctor-filter-panel" class="doctor-filter-panel" style="display: none;">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="filter-specialization" class="form-label">Specialization</label>
+                            <select class="form-select form-select-sm" id="filter-specialization">
+                                <option value="">Any Specialization</option>
+                                <option value="Psychiatry">Psychiatry</option>
+                                <option value="Psychology">Psychology</option>
+                                <option value="Counseling">Counseling</option>
+                                <option value="Therapy">Therapy</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="filter-language" class="form-label">Language</label>
+                            <select class="form-select form-select-sm" id="filter-language">
+                                <option value="">Any Language</option>
+                                <option value="English">English</option>
+                                <option value="Spanish">Spanish</option>
+                                <option value="French">French</option>
+                                <option value="German">German</option>
+                                <option value="Hindi">Hindi</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="filter-gender" class="form-label">Gender</label>
+                            <select class="form-select form-select-sm" id="filter-gender">
+                                <option value="">Any Gender</option>
+                                <option value="M">Male</option>
+                                <option value="F">Female</option>
+                                <option value="O">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="filter-region" class="form-label">Region</label>
+                            <input type="text" class="form-control form-control-sm" id="filter-region" placeholder="Enter region or city">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="filter-day" class="form-label">Available Day</label>
+                            <select class="form-select form-select-sm" id="filter-day">
+                                <option value="">Any Day</option>
+                                <option value="Monday">Monday</option>
+                                <option value="Tuesday">Tuesday</option>
+                                <option value="Wednesday">Wednesday</option>
+                                <option value="Thursday">Thursday</option>
+                                <option value="Friday">Friday</option>
+                                <option value="Saturday">Saturday</option>
+                                <option value="Sunday">Sunday</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="filter-time" class="form-label">Available Time</label>
+                            <input type="time" class="form-control form-control-sm" id="filter-time">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button class="btn btn-sm btn-secondary me-2" id="reset-filters-btn" onclick="resetDoctorFilters()">Reset</button>
+                        <button class="btn btn-sm btn-primary" id="apply-filters-btn" onclick="applyDoctorFilters()">Apply Filters</button>
+                    </div>
+                </div>
+
                 <div id="doctor-recommendations">
                     <p class="text-center text-muted">Loading recommendations...</p>
                 </div>
@@ -128,14 +201,16 @@
                             </div>
                         </div>
                         <div class="chat-input">
-                            <form id="chat-form" class="d-flex">
-                                <input type="text" id="chat-message" class="form-control me-2" placeholder="Type your message...">
-                                <button type="button" class="btn btn-light btn-sm me-2" id="voice-input-btn">
-                                    <i class="fas fa-microphone"></i>
-                                </button>
-                                <button type="submit" class="btn btn-primary btn-sm">
-                                    <i class="fas fa-paper-plane"></i>
-                                </button>
+                            <form id="chat-form" class="d-flex align-items-center">
+                                <input type="text" id="chat-message" class="form-control" placeholder="Type your message..." style="margin-right: 5px;">
+                                <div class="chat-buttons">
+                                    <button type="button" class="btn btn-light btn-sm" id="voice-input-btn" style="width: 30px; height: 30px; padding: 0; margin-right: 5px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-microphone fa-sm"></i>
+                                    </button>
+                                    <button type="submit" class="btn btn-primary btn-sm" style="width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-paper-plane fa-sm"></i>
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </div>
@@ -148,6 +223,56 @@
 
 {% block extra_css %}
 <style>
+    /* Doctor Filter Styles */
+    .doctor-filter-panel {
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border: 1px solid #dee2e6;
+    }
+
+    .doctor-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 15px;
+        border-bottom: 1px solid #eee;
+        margin-bottom: 10px;
+    }
+
+    .doctor-info {
+        flex: 1;
+    }
+
+    .doctor-info h4 {
+        margin-bottom: 5px;
+    }
+
+    .doctor-info p {
+        margin-bottom: 5px;
+        color: #6c757d;
+    }
+
+    .doctor-info .badge {
+        margin-right: 5px;
+    }
+
+    .doctor-actions {
+        min-width: 120px;
+        text-align: right;
+    }
+
+    .doctor-rating {
+        color: #ffc107;
+        margin-bottom: 5px;
+    }
+
+    .doctor-availability {
+        font-size: 0.8rem;
+        color: #28a745;
+    }
+
     /* Chat Interface Styles */
     .chat-header {
         display: flex;
@@ -320,6 +445,27 @@
         flex: 1;
     }
 
+    .chat-input button {
+        min-width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        padding: 0;
+    }
+
+    .chat-buttons {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .chat-input .form-control {
+        flex: 1;
+        height: 38px;
+    }
+
     /* Chat start message */
     .chat-start-message {
         text-align: center;
@@ -396,6 +542,7 @@
 
 {% block extra_js %}
 <script src="/static/js/chat.js"></script>
+<script src="/static/js/doctor_filters.js"></script>
 <script>
     // Production-ready error handling
     window.addEventListener('error', function(event) {

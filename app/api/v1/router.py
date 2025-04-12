@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, doctors, ai_chat, analytics, users, patients, chat, otp_auth
+from app.api.v1.endpoints import auth, doctors, ai_chat, analytics, users, patients, chat, otp_auth, recommendations
 
 api_router = APIRouter()
 
@@ -13,3 +13,4 @@ api_router.include_router(doctors.router, prefix="/doctors", tags=["doctors"])
 api_router.include_router(ai_chat.router, prefix="/ai-chat", tags=["ai-chat"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
+api_router.include_router(recommendations.router, prefix="/recommendations", tags=["recommendations"])
