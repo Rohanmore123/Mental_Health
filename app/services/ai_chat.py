@@ -1,5 +1,6 @@
 import os
 import json
+import uuid
 import tempfile
 from typing import Dict, Any, List, Tuple
 import openai
@@ -16,6 +17,55 @@ openai.api_key = settings.OPENAI_API_KEY
 
 class AIChatService:
     """Service for AI chat functionality."""
+
+    @staticmethod
+    def _get_chat_history(db: Session, user_id: str, limit: int = 10) -> list:
+        """
+        Get recent chat history for a user.
+
+        Args:
+            db: Database session
+            user_id: User ID
+            limit: Maximum number of messages to retrieve
+
+        Returns:
+            List of chat messages in chronological order
+        """
+        ai_user_id = "00000000-0000-0000-0000-000000000000"  # Using a fixed UUID for the AI
+
+        # Fetch recent messages that are part of the conversation between the user and the AI
+        messages = db.query(ChatMessage).filter(
+            # User messages to AI
+            ((ChatMessage.sender_id == user_id) & (ChatMessage.receiver_id == ai_user_id)) |
+            # AI messages to user
+            ((ChatMessage.sender_id == ai_user_id) & (ChatMessage.receiver_id == user_id))
+        ).order_by(ChatMessage.timestamp.asc()).limit(limit).all()
+
+        print(f"Retrieved {len(messages)} messages from database for user {user_id}")
+
+        # Format messages for the LLM
+        formatted_messages = []
+
+        for msg in messages:
+            sender_id_str = str(msg.sender_id) if msg.sender_id else ""
+            receiver_id_str = str(msg.receiver_id) if msg.receiver_id else ""
+
+            print(f"Processing message: sender={sender_id_str}, receiver={receiver_id_str}, text={msg.message_text[:30]}...")
+
+            if sender_id_str == user_id and receiver_id_str == ai_user_id:
+                # This is a user message
+                formatted_messages.append({"role": "user", "content": msg.message_text})
+                print(f"Added user message to history: {msg.message_text[:30]}...")
+            elif sender_id_str == ai_user_id and receiver_id_str == user_id:
+                # This is an AI message
+                formatted_messages.append({"role": "assistant", "content": msg.message_text})
+                print(f"Added AI message to history: {msg.message_text[:30]}...")
+
+        print(f"Retrieved {len(formatted_messages)} messages from chat history for user {user_id}")
+        if formatted_messages:
+            print(f"Sample message: {formatted_messages[0]}")
+
+        return formatted_messages
 
     @staticmethod
     async def process_chat(
@@ -37,8 +87,13 @@ class AIChatService:
             # If audio is provided, transcribe it
             text_input = await AIChatService._transcribe_audio(request.audio_file)
 
+        # Get recent chat history
+        print(f"Fetching chat history for user {request.user_id}")
+        chat_history = AIChatService._get_chat_history(db, str(request.user_id))
+        print(f"Found {len(chat_history)} messages in chat history")
+
         # Generate AI response and extract keywords
-        ai_response, extracted_keywords = await AIChatService._generate_ai_response(text_input)
+        ai_response, extracted_keywords = await AIChatService._generate_ai_response(text_input, chat_history)
 
         # Analyze sentiment
         sentiment_analysis = await AIChatService._analyze_sentiment(text_input)
@@ -98,12 +153,13 @@ class AIChatService:
             return "Sorry, I couldn't transcribe your audio."
 
     @staticmethod
-    async def _generate_ai_response(text_input: str) -> tuple:
+    async def _generate_ai_response(text_input: str, chat_history: list = None) -> tuple:
         """
         Generate an AI response using OpenAI.
 
         Args:
             text_input: User input text
+            chat_history: List of previous chat messages in the format [{"role": "user/assistant", "content": "message"}]
 
         Returns:
             Tuple of (AI generated response, extracted keywords)
@@ -111,11 +167,14 @@ class AIChatService:
         # Define the system prompt
         system_prompt = '''
         You are a mental health AI assistant. Respond like a compassionate psychiatrist — short, simple, supportive sentences.
-        extract the keywords from user message and not from system generated
+        IMPORTANT: Maintain context from the conversation history. Remember what the user has told you previously.
+        If the user asks about their problems or issues, refer back to what they've shared earlier in the conversation.
+
+        Extract keywords from the user message (not from system generated text).
 
         ❗Reply ONLY in this JSON structure:
         {
-          "response": "<short, empathetic reply>",
+          "response": "<short, empathetic reply that maintains conversation context>",
           "extracted_keywords": ["<keyword1>", "<keyword2>"]
         }
         Only output the JSON (no explanation, no markdown).
@@ -124,11 +183,48 @@ class AIChatService:
         # Check if OpenAI API key is set
         if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.startswith("sk-") and len(settings.OPENAI_API_KEY) < 50:
             print("OpenAI API key is not set or invalid, using mock response")
-            # Use a mock response for testing
+            # Use a mock response for testing that maintains context
             response_text = ""
             extracted_keywords = []
 
-            if "anxiety" in text_input.lower() or "anxious" in text_input.lower():
+            # Check if there's chat history to maintain context
+            previous_issues = set()
+            if chat_history:
+                for msg in chat_history:
+                    if msg["role"] == "user":
+                        # Extract issues from previous messages
+                        if "anxiety" in msg["content"].lower() or "anxious" in msg["content"].lower():
+                            previous_issues.add("anxiety")
+                        if "depression" in msg["content"].lower() or "sad" in msg["content"].lower():
+                            previous_issues.add("depression")
+                        if "stress" in msg["content"].lower() or "overwhelmed" in msg["content"].lower():
+                            previous_issues.add("stress")
+                        if "sleep" in msg["content"].lower() or "insomnia" in msg["content"].lower():
+                            previous_issues.add("sleep")
+
+            print(f"Previous issues identified: {previous_issues}")
+
+            # Check if the user is asking about their problem
+            asking_about_problem = any(phrase in text_input.lower() for phrase in ["my problem", "my issue", "what issue", "what problem", "tell me about my"])
+
+            if asking_about_problem and previous_issues:
+                # Respond based on previously mentioned issues
+                if "anxiety" in previous_issues:
+                    response_text = "Based on what you've shared, you mentioned feeling anxious. Anxiety can manifest as worry, restlessness, and physical symptoms like a racing heart. Would you like some coping strategies for anxiety?"
+                    extracted_keywords = ["anxiety", "coping", "strategies"]
+                elif "depression" in previous_issues:
+                    response_text = "From our conversation, you've mentioned feeling down or sad. These can be signs of depression. It's important to be gentle with yourself and consider speaking with a mental health professional."
+                    extracted_keywords = ["depression", "sad", "professional help"]
+                elif "stress" in previous_issues:
+                    response_text = "You've mentioned feeling stressed or overwhelmed. Chronic stress can affect both your mental and physical health. Let's work on some stress management techniques."
+                    extracted_keywords = ["stress", "overwhelmed", "management"]
+                elif "sleep" in previous_issues:
+                    response_text = "You've mentioned having trouble sleeping. Sleep issues can significantly impact your mental health. Let's discuss some strategies to improve your sleep quality."
+                    extracted_keywords = ["sleep", "insomnia", "quality"]
+                else:
+                    response_text = "Based on our conversation, you've been experiencing some mental health challenges. Could you tell me more specifically what's been troubling you the most recently?"
+                    extracted_keywords = ["mental health", "challenges", "support"]
+            elif "anxiety" in text_input.lower() or "anxious" in text_input.lower():
                 response_text = "I understand you're feeling anxious. Deep breathing exercises can help. Try breathing in for 4 counts, holding for 4, and exhaling for 6. Would you like more coping strategies?"
                 extracted_keywords = ["anxiety", "anxious", "breathing", "coping"]
             elif "depression" in text_input.lower() or "sad" in text_input.lower():
@@ -140,6 +236,19 @@ class AIChatService:
             elif "sleep" in text_input.lower() or "insomnia" in text_input.lower():
                 response_text = "Sleep issues can be challenging. Try establishing a consistent sleep schedule and creating a relaxing bedtime routine. Avoiding screens an hour before bed can also help."
                 extracted_keywords = ["sleep", "insomnia", "routine", "screens"]
+            elif "what should i do" in text_input.lower() and previous_issues:
+                if "anxiety" in previous_issues:
+                    response_text = "For anxiety, I recommend deep breathing exercises, mindfulness meditation, and physical activity. It can also help to limit caffeine and practice progressive muscle relaxation."
+                    extracted_keywords = ["anxiety", "breathing", "meditation", "exercise"]
+                elif "sleep" in previous_issues:
+                    response_text = "To improve sleep, maintain a consistent sleep schedule, create a relaxing bedtime routine, avoid screens before bed, ensure your bedroom is dark and cool, and limit caffeine and alcohol."
+                    extracted_keywords = ["sleep", "routine", "environment", "habits"]
+                elif "stress" in previous_issues:
+                    response_text = "To manage stress, try regular exercise, mindfulness meditation, time management techniques, setting boundaries, and making time for activities you enjoy."
+                    extracted_keywords = ["stress", "exercise", "mindfulness", "boundaries"]
+                else:
+                    response_text = "Based on what you've shared, I recommend practicing self-care, maintaining a healthy routine, connecting with supportive people, and considering speaking with a mental health professional."
+                    extracted_keywords = ["self-care", "routine", "support", "professional help"]
             else:
                 response_text = f"Thank you for sharing that with me. I'm here to support you with your mental health concerns. Could you tell me more about how you've been feeling lately?"
                 # Extract simple keywords from user input
@@ -148,13 +257,28 @@ class AIChatService:
             return response_text, extracted_keywords
 
         try:
-            # Call OpenAI API with the specified system prompt
+            # Prepare messages for the API call
+            messages = [{"role": "system", "content": system_prompt}]
+
+            # Add chat history if available
+            if chat_history and len(chat_history) > 0:
+                print(f"Adding {len(chat_history)} messages from chat history to the prompt")
+                messages.extend(chat_history)
+            else:
+                print("No chat history available to add to the prompt")
+
+            # Add the current user message
+            messages.append({"role": "user", "content": text_input})
+
+            # Log the messages being sent to OpenAI
+            print(f"Sending {len(messages)} messages to OpenAI API")
+            for i, msg in enumerate(messages):
+                print(f"Message {i}: role={msg['role']}, content={msg['content'][:50]}...")
+
+            # Call OpenAI API with the specified system prompt and chat history
             response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": text_input}
-                ],
+                messages=messages,
                 max_tokens=500,
                 temperature=0.7
             )
@@ -412,9 +536,14 @@ class AIChatService:
             ai_response: AI response
             extracted_keywords: Keywords extracted from the user message
         """
+        # Generate a UUID for the AI (system) user
+        ai_user_id = "00000000-0000-0000-0000-000000000000"  # Using a fixed UUID for the AI
+
         # Save user message
         user_chat = ChatMessage(
+            chat_message_id=str(uuid.uuid4()),
             sender_id=user_id,
+            receiver_id=ai_user_id,  # User is sending to AI
             message_text=user_message,
             timestamp=func.now()
         )
@@ -422,12 +551,18 @@ class AIChatService:
 
         # Save AI response with extracted keywords
         ai_chat = ChatMessage(
+            chat_message_id=str(uuid.uuid4()),
+            sender_id=ai_user_id,  # AI is sending to user
             receiver_id=user_id,
             message_text=ai_response,
             extracted_keywords=extracted_keywords if extracted_keywords else [],
             timestamp=func.now()
         )
         db.add(ai_chat)
+
+        print(f"Saved conversation: User {user_id} -> AI {ai_user_id}")
+        print(f"User message: {user_message[:50]}...")
+        print(f"AI response: {ai_response[:50]}...")
 
         # Commit the changes
         db.commit()
