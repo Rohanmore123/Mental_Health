@@ -106,12 +106,27 @@ class AIChatService:
         Returns:
             AI generated response
         """
+        # Check if OpenAI API key is set
+        if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.startswith("sk-") and len(settings.OPENAI_API_KEY) < 50:
+            print("OpenAI API key is not set or invalid, using mock response")
+            # Use a mock response for testing
+            if "anxiety" in text_input.lower() or "anxious" in text_input.lower():
+                return "I understand you're feeling anxious. Deep breathing exercises can help. Try breathing in for 4 counts, holding for 4, and exhaling for 6. Would you like more coping strategies?"
+            elif "depression" in text_input.lower() or "sad" in text_input.lower():
+                return "I'm sorry to hear you're feeling down. Remember that it's okay to not be okay sometimes. Have you tried talking to someone you trust about how you're feeling?"
+            elif "stress" in text_input.lower() or "overwhelmed" in text_input.lower():
+                return "It sounds like you're dealing with a lot of stress. Taking small breaks throughout the day and practicing mindfulness can help manage overwhelming feelings."
+            elif "sleep" in text_input.lower() or "insomnia" in text_input.lower():
+                return "Sleep issues can be challenging. Try establishing a consistent sleep schedule and creating a relaxing bedtime routine. Avoiding screens an hour before bed can also help."
+            else:
+                return f"Thank you for sharing that with me. I'm here to support you with your mental health concerns. Could you tell me more about how you've been feeling lately?"
+
         try:
             # Call OpenAI API
             response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "You are a helpful healthcare assistant."},
+                    {"role": "system", "content": "You are a helpful healthcare assistant specializing in mental health support. Provide empathetic, supportive responses that are concise and helpful. Focus on evidence-based approaches and gentle encouragement."},
                     {"role": "user", "content": text_input}
                 ],
                 max_tokens=500,
@@ -123,7 +138,16 @@ class AIChatService:
         except Exception as e:
             # Handle any errors
             print(f"Error generating AI response: {str(e)}")
-            return "I'm sorry, I'm having trouble processing your request right now."
+
+            # Provide a more helpful fallback response
+            if "anxiety" in text_input.lower():
+                return "I understand anxiety can be challenging. Deep breathing and grounding exercises may help. Would you like to know more about these techniques?"
+            elif "depression" in text_input.lower():
+                return "I hear that you're struggling with feelings of depression. Remember that seeking support is a sign of strength, not weakness. Have you considered talking to a mental health professional?"
+            elif "stress" in text_input.lower():
+                return "Managing stress is important for your wellbeing. Regular exercise, adequate sleep, and mindfulness practices can all help reduce stress levels."
+            else:
+                return "I'm here to support you with your mental health concerns. While I'm having some technical difficulties right now, please know that your wellbeing matters. Consider reaching out to a healthcare provider if you need immediate assistance."
 
     @staticmethod
     async def _analyze_sentiment(text: str) -> Dict[str, Any]:
@@ -136,6 +160,12 @@ class AIChatService:
         Returns:
             Sentiment analysis results
         """
+        # Check if OpenAI API key is set
+        if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.startswith("sk-") and len(settings.OPENAI_API_KEY) < 50:
+            print("OpenAI API key is not set or invalid, using rule-based sentiment analysis")
+            # Use a simple rule-based approach for sentiment analysis
+            return AIChatService._rule_based_sentiment_analysis(text)
+
         try:
             # Call OpenAI API for sentiment analysis
             response = openai.chat.completions.create(
@@ -192,17 +222,84 @@ class AIChatService:
         except Exception as e:
             # Handle any errors
             print(f"Error analyzing sentiment: {str(e)}")
-            return {
-                "sentiment": "neutral",
-                "confidence": 0.5,
-                "emotions": {
-                    "joy": 0.0,
-                    "sadness": 0.0,
-                    "anger": 0.0,
-                    "fear": 0.0,
-                    "surprise": 0.0
-                }
-            }
+            return AIChatService._rule_based_sentiment_analysis(text)
+
+    @staticmethod
+    def _rule_based_sentiment_analysis(text: str) -> Dict[str, Any]:
+        """
+        Perform a simple rule-based sentiment analysis.
+
+        Args:
+            text: Text to analyze
+
+        Returns:
+            Sentiment analysis results
+        """
+        text = text.lower()
+
+        # Define positive and negative word lists
+        positive_words = ["happy", "good", "great", "excellent", "wonderful", "amazing", "love", "enjoy", "pleased",
+                         "joy", "delighted", "grateful", "thankful", "excited", "hopeful", "optimistic"]
+
+        negative_words = ["sad", "bad", "terrible", "awful", "horrible", "hate", "dislike", "angry", "upset",
+                         "depressed", "anxious", "worried", "stressed", "afraid", "scared", "unhappy", "miserable"]
+
+        # Count occurrences
+        positive_count = sum(1 for word in positive_words if word in text)
+        negative_count = sum(1 for word in negative_words if word in text)
+
+        # Determine sentiment
+        if positive_count > negative_count:
+            sentiment = "positive"
+            confidence = min(0.5 + (positive_count - negative_count) * 0.1, 0.9)
+        elif negative_count > positive_count:
+            sentiment = "negative"
+            confidence = min(0.5 + (negative_count - positive_count) * 0.1, 0.9)
+        else:
+            sentiment = "neutral"
+            confidence = 0.5
+
+        # Create emotions dictionary
+        emotions = {
+            "joy": 0.0,
+            "sadness": 0.0,
+            "anger": 0.0,
+            "fear": 0.0,
+            "surprise": 0.0
+        }
+
+        # Simple emotion detection
+        joy_words = ["happy", "joy", "delighted", "excited", "pleased", "enjoy"]
+        sadness_words = ["sad", "unhappy", "depressed", "miserable", "disappointed"]
+        anger_words = ["angry", "mad", "furious", "annoyed", "irritated", "hate"]
+        fear_words = ["afraid", "scared", "fearful", "terrified", "anxious", "worried"]
+        surprise_words = ["surprised", "shocked", "amazed", "astonished", "unexpected"]
+
+        for word in joy_words:
+            if word in text:
+                emotions["joy"] = min(emotions["joy"] + 0.2, 0.9)
+
+        for word in sadness_words:
+            if word in text:
+                emotions["sadness"] = min(emotions["sadness"] + 0.2, 0.9)
+
+        for word in anger_words:
+            if word in text:
+                emotions["anger"] = min(emotions["anger"] + 0.2, 0.9)
+
+        for word in fear_words:
+            if word in text:
+                emotions["fear"] = min(emotions["fear"] + 0.2, 0.9)
+
+        for word in surprise_words:
+            if word in text:
+                emotions["surprise"] = min(emotions["surprise"] + 0.2, 0.9)
+
+        return {
+            "sentiment": sentiment,
+            "confidence": confidence,
+            "emotions": emotions
+        }
 
     @staticmethod
     async def _text_to_speech(text: str) -> str:
@@ -215,6 +312,11 @@ class AIChatService:
         Returns:
             Base64 encoded audio
         """
+        # Check if OpenAI API key is set
+        if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.startswith("sk-") and len(settings.OPENAI_API_KEY) < 50:
+            print("OpenAI API key is not set or invalid, skipping text-to-speech conversion")
+            return ""
+
         try:
             # Create a temporary file for the audio
             with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_file:
