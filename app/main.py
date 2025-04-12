@@ -53,6 +53,13 @@ async def mobile_login_page(request: Request):
     """
     return templates.TemplateResponse("mobile_login.html", {"request": request})
 
+@app.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    """
+    Registration page.
+    """
+    return templates.TemplateResponse("register_simple.html", {"request": request})
+
 @app.get("/test-otp", response_class=HTMLResponse)
 async def test_otp_page(request: Request):
     """

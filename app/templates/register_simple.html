@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Prasha Healthcare{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Create an Account</h3>
+                </div>
+                <div class="card-body">
+                    <!-- Error message -->
+                    <div id="error-message" class="alert alert-danger" style="display: none;"></div>
+                    
+                    <!-- Success message -->
+                    <div id="success-message" class="alert alert-success" style="display: none;">
+                        <h4>Registration Successful!</h4>
+                        <p>Your account has been created successfully.</p>
+                        <p>You will be redirected to the login page in <span id="countdown">3</span> seconds...</p>
+                        <a href="/login" class="btn btn-primary">Go to Login Page Now</a>
+                    </div>
+                    
+                    <!-- Registration form -->
+                    <form id="register-form">
+                        <div class="mb-3">
+                            <label class="form-label">I am a:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="user-type" id="patient-type" value="patient" checked>
+                                <label class="form-check-label" for="patient-type">
+                                    Patient
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="user-type" id="doctor-type" value="doctor">
+                                <label class="form-check-label" for="doctor-type">
+                                    Doctor
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label for="title" class="form-label">Title</label>
+                                <select class="form-select" id="title">
+                                    <option value="">Select</option>
+                                    <option value="Mr">Mr</option>
+                                    <option value="Mrs">Mrs</option>
+                                    <option value="Ms">Ms</option>
+                                    <option value="Dr">Dr</option>
+                                    <option value="Prof">Prof</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="first-name" class="form-label">First Name*</label>
+                                <input type="text" class="form-control" id="first-name" required>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="middle-name" class="form-label">Middle Name</label>
+                                <input type="text" class="form-control" id="middle-name">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="last-name" class="form-label">Last Name*</label>
+                                <input type="text" class="form-control" id="last-name" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="gender" class="form-label">Gender*</label>
+                            <select class="form-select" id="gender" required>
+                                <option value="">Select</option>
+                                <option value="M">Male</option>
+                                <option value="F">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email*</label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password*</label>
+                            <input type="password" class="form-control" id="password" required>
+                            <div class="form-text">
+                                Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confirm-password" class="form-label">Confirm Password*</label>
+                            <input type="password" class="form-control" id="confirm-password" required>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Register</button>
+                            <a href="/login" class="btn btn-outline-secondary">Already have an account? Login</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const registerForm = document.getElementById('register-form');
+        const errorMessage = document.getElementById('error-message');
+        const successMessage = document.getElementById('success-message');
+        const countdownElement = document.getElementById('countdown');
+        
+        // Form submission
+        registerForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Hide any previous messages
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+            
+            // Get form values
+            const title = document.getElementById('title').value;
+            const firstName = document.getElementById('first-name').value.trim();
+            const middleName = document.getElementById('middle-name').value.trim();
+            const lastName = document.getElementById('last-name').value.trim();
+            const gender = document.getElementById('gender').value;
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const userType = document.querySelector('input[name="user-type"]:checked').value;
+            
+            // Basic validation
+            if (!firstName) {
+                showError('Please enter your first name');
+                return;
+            }
+            
+            if (!lastName) {
+                showError('Please enter your last name');
+                return;
+            }
+            
+            if (!gender) {
+                showError('Please select your gender');
+                return;
+            }
+            
+            if (!email) {
+                showError('Please enter your email');
+                return;
+            }
+            
+            if (!validateEmail(email)) {
+                showError('Please enter a valid email address');
+                return;
+            }
+            
+            if (!password) {
+                showError('Please enter a password');
+                return;
+            }
+            
+            if (password.length < 8) {
+                showError('Password must be at least 8 characters long');
+                return;
+            }
+            
+            if (!validatePassword(password)) {
+                showError('Password must include uppercase, lowercase, number, and special character');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showError('Passwords do not match');
+                return;
+            }
+            
+            try {
+                // Prepare data for API call
+                const data = {
+                    title: title || null,
+                    first_name: firstName,
+                    middle_name: middleName || null,
+                    last_name: lastName,
+                    gender: gender,
+                    email: email,
+                    password: password,
+                    roles: userType,
+                    profile_picture: null
+                };
+                
+                // Make API call
+                const response = await fetch('/api/v1/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                // Parse response
+                const result = await response.json();
+                
+                // Check if registration was successful
+                if (response.ok) {
+                    // Show success message
+                    registerForm.style.display = 'none';
+                    successMessage.style.display = 'block';
+                    
+                    // Start countdown
+                    let countdown = 3;
+                    const interval = setInterval(() => {
+                        countdown--;
+                        countdownElement.textContent = countdown;
+                        
+                        if (countdown <= 0) {
+                            clearInterval(interval);
+                            window.location.href = '/login';
+                        }
+                    }, 1000);
+                    
+                    // Backup redirect
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 4000);
+                } else {
+                    // Show error message
+                    if (result.detail === "Email already registered") {
+                        showError('This email is already registered. Please use a different email or login with your existing account.');
+                    } else {
+                        showError(result.detail || 'Registration failed. Please try again.');
+                    }
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showError('An error occurred during registration. Please try again.');
+            }
+        });
+        
+        // Helper functions
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+        
+        function validateEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
+        }
+        
+        function validatePassword(password) {
+            const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+            return re.test(password);
+        }
+    });
+</script>
+{% endblock %}

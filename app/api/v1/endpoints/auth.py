@@ -1,18 +1,29 @@
 from datetime import timedelta
-from typing import Any
+from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models.users import User
+from app.models.users import User, GenderEnum
 from app.schemas.users import UserCreate, UserResponse
 from app.services.auth import authenticate_user
 from app.utils.security import create_access_token, get_password_hash, verify_password
 
 router = APIRouter()
+
+@router.get("/check-email")
+def check_email_exists(
+    email: str = Query(...),
+    db: Session = Depends(get_db)
+) -> Dict[str, bool]:
+    """
+    Check if an email already exists in the database.
+    """
+    user = db.query(User).filter(User.email == email).first()
+    return {"exists": user is not None}
 
 @router.post("/register", response_model=UserResponse)
 def register_user(
@@ -22,32 +33,49 @@ def register_user(
     """
     Register a new user.
     """
-    # Check if user with this email already exists
-    user = db.query(User).filter(User.email == user_in.email).first()
-    if user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+    try:
+        print(f"Registration attempt for user: {user_in.email}")
+        print(f"User data: {user_in.dict()}")
+
+        # Check if user with this email already exists - CASE INSENSITIVE check
+        user = db.query(User).filter(User.email.ilike(user_in.email)).first()
+        if user:
+            print(f"User with email {user_in.email} already exists")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+
+        # Validate gender enum
+        if user_in.gender and user_in.gender not in [e.value for e in GenderEnum]:
+            print(f"Invalid gender value: {user_in.gender}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid gender value: {user_in.gender}. Valid values are: {[e.value for e in GenderEnum]}"
+            )
+
+        # Create new user
+        db_user = User(
+            title=user_in.title,
+            first_name=user_in.first_name,
+            middle_name=user_in.middle_name,
+            last_name=user_in.last_name,
+            gender=user_in.gender,
+            email=user_in.email,
+            password_hash=get_password_hash(user_in.password),
+            roles=user_in.roles,
+            profile_picture=user_in.profile_picture
         )
 
-    # Create new user
-    db_user = User(
-        title=user_in.title,
-        first_name=user_in.first_name,
-        middle_name=user_in.middle_name,
-        last_name=user_in.last_name,
-        gender=user_in.gender,
-        email=user_in.email,
-        password_hash=get_password_hash(user_in.password),
-        roles=user_in.roles,
-        profile_picture=user_in.profile_picture
-    )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
 
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-
-    return db_user
+        print(f"User registered successfully: {db_user.user_id}")
+        return db_user
+    except Exception as e:
+        print(f"Error during registration: {str(e)}")
+        raise
 
 @router.post("/login")
 def login(
@@ -67,6 +95,8 @@ def login(
 
         # Parse the connection string
         db_url = settings.DATABASE_URL
+        print(f"Database URL: {db_url}")
+
         parts = db_url.split("://")[1].split("@")
         user_pass = parts[0].split(":")
         host_port_db = parts[1].split("/")
@@ -77,6 +107,8 @@ def login(
         host = host_port[0]
         port = host_port[1] if len(host_port) > 1 else "5432"
         database = host_port_db[1]
+
+        print(f"Connecting to database: host={host}, port={port}, database={database}, user={username}")
 
         # Connect to the database
         conn = psycopg2.connect(

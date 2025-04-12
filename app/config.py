@@ -13,17 +13,14 @@ class Settings(BaseSettings):
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
 
     # Database settings
-    # Local database URL
-    # DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:Raje%4012345@localhost:5432/Prasha_care")
+    # Use the DATABASE_URL from the .env file directly (AWS RDS)
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:Prashaind2025@mental-health-db.c0j84sqwazto.us-east-1.rds.amazonaws.com:5432/Prasha_care")
 
-    # AWS Database settings
+    # AWS Database settings (for reference)
     AWS_DB_USERNAME: str = os.getenv("AWS_DB_USERNAME", "postgres")
     AWS_DB_PASSWORD: str = os.getenv("AWS_DB_PASSWORD", "Prashaind2025")
-    AWS_DB_HOST: str = os.getenv("AWS_DB_HOST", "localhost")
+    AWS_DB_HOST: str = os.getenv("AWS_DB_HOST", "mental-health-db.c0j84sqwazto.us-east-1.rds.amazonaws.com")
     AWS_DB_NAME: str = os.getenv("AWS_DB_NAME", "Prasha_care")
-
-    # Construct database URL from AWS settings
-    DATABASE_URL: str = f"postgresql://{AWS_DB_USERNAME}:{AWS_DB_PASSWORD}@{AWS_DB_HOST}:5432/{AWS_DB_NAME}"
 
     # JWT Authentication settings
     SECRET_KEY: str = os.getenv("SECRET_KEY", "prasha_healthcare_secret_key_for_jwt_tokens_2025")
