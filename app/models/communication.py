@@ -31,17 +31,18 @@ class OtpStatusEnum(str, Enum):
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
-    
+
     chat_message_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     sender_id = Column(UUID(as_uuid=True))
     receiver_id = Column(UUID(as_uuid=True))
     message_text = Column(Text, nullable=False)
     timestamp = Column(DateTime, default=func.now())
     attachment_url = Column(Text)
+    extracted_keywords = Column(JSONB, nullable=True)
 
 class Notification(Base):
     __tablename__ = "notifications"
-    
+
     notification_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     sender_id = Column(UUID(as_uuid=True))
     receiver_id = Column(UUID(as_uuid=True))
@@ -55,7 +56,7 @@ class Notification(Base):
 
 class UserNotificationPreference(Base):
     __tablename__ = "user_notification_preferences"
-    
+
     user_id = Column(UUID(as_uuid=True), primary_key=True)
     email_enabled = Column(Boolean, default=True)
     sms_enabled = Column(Boolean, default=False)
@@ -63,7 +64,7 @@ class UserNotificationPreference(Base):
 
 class NotificationLog(Base):
     __tablename__ = "notification_logs"
-    
+
     notification_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     sender_id = Column(UUID(as_uuid=True))
     receiver_id = Column(UUID(as_uuid=True))
@@ -78,7 +79,7 @@ class NotificationLog(Base):
 
 class Otp(Base):
     __tablename__ = "otp"
-    
+
     otp_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     otp_text = Column(String(100), nullable=False)
     user_id = Column(UUID(as_uuid=True), nullable=False)
@@ -89,7 +90,7 @@ class Otp(Base):
 
 class Mydiary(Base):
     __tablename__ = "mydiary"
-    
+
     event_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.patient_id", ondelete="CASCADE"), nullable=False)
     notes = Column(Text, nullable=False)
@@ -97,27 +98,27 @@ class Mydiary(Base):
     additional_notes = Column(Text)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
+
     # Relationships
     patient = relationship("Patient", back_populates="diaries")
 
 class MyTimeline(Base):
     __tablename__ = "mytimeline"
-    
+
     timeline_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.patient_id", ondelete="CASCADE"), nullable=False)
     timeline_name = Column(String(200), nullable=False)
     timeline_description = Column(Text)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
+
     # Relationships
     patient = relationship("Patient", back_populates="timelines")
     events = relationship("MyTimelineEvent", back_populates="timeline", cascade="all, delete-orphan")
 
 class MyTimelineEvent(Base):
     __tablename__ = "mytimeline_events"
-    
+
     event_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     timeline_id = Column(UUID(as_uuid=True), ForeignKey("mytimeline.timeline_id", ondelete="CASCADE"), nullable=False)
     patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.patient_id", ondelete="CASCADE"), nullable=False)
@@ -126,7 +127,7 @@ class MyTimelineEvent(Base):
     event_description = Column(Text)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
+
     # Relationships
     timeline = relationship("MyTimeline", back_populates="events")
     patient = relationship("Patient", back_populates="timeline_events")
