@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Prasha Healthcare{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Create an Account</h3>
+                </div>
+                <div class="card-body">
+                    <div id="error-message" class="alert alert-danger" style="display: none;"></div>
+                    <div id="success-message" class="alert alert-success" style="display: none;"></div>
+                    <div id="registration-success" class="alert alert-success text-center" style="display: none;">
+                        <h4 class="alert-heading">Registration Successful!</h4>
+                        <p>Your account has been created successfully.</p>
+                        <p>You will be redirected to the login page in <span id="countdown">3</span> seconds...</p>
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border text-success" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <a href="/login" class="btn btn-primary">Go to Login Page Now</a>
+                        </div>
+                    </div>
+
+                    <form id="register-form">
+                        <div class="mb-3">
+                            <label class="form-label">I am a:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="user-type" id="patient-type" value="patient" checked>
+                                <label class="form-check-label" for="patient-type">
+                                    Patient
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="user-type" id="doctor-type" value="doctor">
+                                <label class="form-check-label" for="doctor-type">
+                                    Doctor
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label for="title" class="form-label">Title</label>
+                                <select class="form-select" id="title">
+                                    <option value="">Select</option>
+                                    <option value="Mr">Mr</option>
+                                    <option value="Mrs">Mrs</option>
+                                    <option value="Ms">Ms</option>
+                                    <option value="Dr">Dr</option>
+                                    <option value="Prof">Prof</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="first-name" class="form-label">First Name*</label>
+                                <input type="text" class="form-control" id="first-name" required>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="middle-name" class="form-label">Middle Name</label>
+                                <input type="text" class="form-control" id="middle-name">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="last-name" class="form-label">Last Name*</label>
+                                <input type="text" class="form-control" id="last-name" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="gender" class="form-label">Gender*</label>
+                            <select class="form-select" id="gender" required>
+                                <option value="">Select</option>
+                                <option value="M">Male</option>
+                                <option value="F">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email*</label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password*</label>
+                            <input type="password" class="form-control" id="password" required>
+                            <div class="form-text">
+                                Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="confirm-password" class="form-label">Confirm Password*</label>
+                            <input type="password" class="form-control" id="confirm-password" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="profile-picture" class="form-label">Profile Picture</label>
+                            <input type="file" class="form-control" id="profile-picture" accept="image/*">
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Register</button>
+                            <a href="/login" class="btn btn-outline-secondary">Already have an account? Login</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Import the apiCall function from main.js
+    const apiCall = window.apiCall || async function(endpoint, method = 'GET', data = null) {
+        console.log(`========== API CALL START: ${endpoint} ==========`);
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+
+        const options = {
+            method,
+            headers
+        };
+
+        if (data && (method === 'POST' || method === 'PUT')) {
+            options.body = JSON.stringify(data);
+            console.log(`Request body: ${options.body}`);
+        }
+
+        console.log(`Making API call to ${endpoint} with method ${method}`);
+        console.log('Request options:', options);
+
+        try {
+            console.log(`Fetching from URL: /api/v1${endpoint}`);
+            const response = await fetch(`/api/v1${endpoint}`, options);
+            console.log(`Response received for ${endpoint}`);
+            console.log(`Response status: ${response.status}`);
+            console.log(`Response status text: ${response.statusText}`);
+
+            // Log all headers
+            const headers = {};
+            response.headers.forEach((value, key) => {
+                headers[key] = value;
+            });
+            console.log('Response headers:', headers);
+
+            try {
+                const contentType = response.headers.get('content-type');
+                console.log(`Content-Type: ${contentType}`);
+
+                if (!contentType || !contentType.includes('application/json')) {
+                    console.warn('Response is not JSON, attempting to get text...');
+                    const text = await response.text();
+                    console.error('Non-JSON response text:', text);
+                    throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}...`);
+                }
+
+                console.log('Parsing JSON response...');
+                const result = await response.json();
+                console.log(`API response data:`, result);
+
+                if (!response.ok) {
+                    console.error(`Error response:`, result);
+
+                    // Check for specific error messages
+                    if (result.detail === "Email already registered") {
+                        throw new Error('This email is already registered. Please use a different email or login with your existing account.');
+                    } else {
+                        throw new Error(result.detail || 'Something went wrong');
+                    }
+                }
+
+                console.log(`========== API CALL SUCCESS: ${endpoint} ==========`);
+                return result;
+            } catch (parseError) {
+                console.error(`Error parsing API response: ${parseError.message}`);
+                if (response.status === 404) {
+                    console.error(`404 Not Found error for endpoint: ${endpoint}`);
+                    showError(`Resource not found: ${endpoint}`);
+                } else {
+                    showError(`Error processing response: ${parseError.message}`);
+                }
+                console.log(`========== API CALL FAILED (PARSE ERROR): ${endpoint} ==========`);
+                return null;
+            }
+        } catch (error) {
+            console.error(`API Error for ${endpoint}: ${error.message}`);
+            console.error('Full error:', error);
+            showError(error.message);
+            console.log(`========== API CALL FAILED (NETWORK ERROR): ${endpoint} ==========`);
+            return null;
+        }
+    };
+
+    // Show Error Message
+    function showError(message) {
+        const errorDiv = document.getElementById('error-message');
+        if (errorDiv) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+
+            // Hide after 5 seconds
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        } else {
+            alert(message);
+        }
+    }
+
+    // Show Success Message
+    function showSuccess(message) {
+        const successDiv = document.getElementById('success-message');
+        if (successDiv) {
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+
+            // Hide after 5 seconds
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 5000);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add event listener to registration form
+        const registerForm = document.getElementById('register-form');
+        if (registerForm) {
+            registerForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                // Get form values
+                const title = document.getElementById('title').value;
+                const firstName = document.getElementById('first-name').value.trim();
+                const middleName = document.getElementById('middle-name').value.trim();
+                const lastName = document.getElementById('last-name').value.trim();
+                const gender = document.getElementById('gender').value;
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value;
+                const confirmPassword = document.getElementById('confirm-password').value;
+                const userType = document.querySelector('input[name="user-type"]:checked').value;
+                const profilePictureInput = document.getElementById('profile-picture');
+
+                // Validate form
+                if (!firstName) {
+                    showError('Please enter your first name');
+                    return;
+                }
+
+                if (!lastName) {
+                    showError('Please enter your last name');
+                    return;
+                }
+
+                if (!gender) {
+                    showError('Please select your gender');
+                    return;
+                }
+
+                if (!email) {
+                    showError('Please enter your email');
+                    return;
+                }
+
+                if (!validateEmail(email)) {
+                    showError('Please enter a valid email address');
+                    return;
+                }
+
+                if (!password) {
+                    showError('Please enter a password');
+                    return;
+                }
+
+                if (password.length < 8) {
+                    showError('Password must be at least 8 characters long');
+                    return;
+                }
+
+                if (!validatePassword(password)) {
+                    showError('Password must include uppercase, lowercase, number, and special character');
+                    return;
+                }
+
+                if (password !== confirmPassword) {
+                    showError('Passwords do not match');
+                    return;
+                }
+
+                // Handle profile picture
+                let profilePicture = null;
+                if (profilePictureInput.files.length > 0) {
+                    // In a real app, you would upload the file to a server
+                    // For now, we'll just use a placeholder
+                    profilePicture = 'profile_placeholder.jpg';
+                }
+
+                // Directly register the user without checking email
+                // This simplifies the process and relies on the server-side validation
+                register(title, firstName, middleName, lastName, gender, email, password, userType, profilePicture);
+            });
+        }
+
+        // Check if email already exists
+        async function checkEmailExists(email) {
+            try {
+                const response = await fetch(`/api/v1/auth/check-email?email=${encodeURIComponent(email)}`);
+                if (!response.ok) {
+                    // If the endpoint doesn't exist, assume email doesn't exist
+                    if (response.status === 404) {
+                        return false;
+                    }
+                    const text = await response.text();
+                    console.error('Error checking email:', text);
+                    return false;
+                }
+                const data = await response.json();
+                return data.exists;
+            } catch (error) {
+                console.error('Error checking email:', error);
+                return false;
+            }
+        }
+
+        // Email validation function
+        function validateEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
+        }
+
+        // Password validation function
+        function validatePassword(password) {
+            const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+            return re.test(password);
+        }
+
+        // Register function
+        async function register(title, firstName, middleName, lastName, gender, email, password, userType, profilePicture = null) {
+            try {
+                // Prepare data
+                const data = {
+                    title: title || null,
+                    first_name: firstName,
+                    middle_name: middleName || null,
+                    last_name: lastName,
+                    gender: gender,
+                    email: email,
+                    password: password,
+                    roles: userType,
+                    profile_picture: profilePicture
+                };
+
+                console.log('Sending registration data:', JSON.stringify(data, null, 2));
+
+                // Call API
+                const response = await apiCall('/auth/register', 'POST', data);
+                console.log('Registration response:', response);
+
+                if (response) {
+                    // Registration was successful
+                    console.log('Registration successful, response:', response);
+
+                    // Show success message and hide form
+                    document.getElementById('register-form').style.display = 'none';
+                    document.getElementById('registration-success').style.display = 'block';
+
+                    // Set up countdown
+                    let countdown = 3;
+                    const countdownElement = document.getElementById('countdown');
+
+                    const countdownInterval = setInterval(() => {
+                        countdown--;
+                        if (countdownElement) {
+                            countdownElement.textContent = countdown;
+                        }
+                        if (countdown <= 0) {
+                            clearInterval(countdownInterval);
+                            // Redirect to login page
+                            window.location.href = '/login';
+                        }
+                    }, 1000);
+
+                    // Also set a backup redirect
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 4000);
+                } else {
+                    console.error('Registration failed: No response from server');
+                    showError('Registration failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Registration Error:', error);
+
+                // Show specific error message for email already registered
+                if (error.message && error.message.includes('already registered')) {
+                    showError('This email is already registered. Please use a different email or login with your existing account.');
+                } else {
+                    showError(error.message || 'Registration failed. Please try again.');
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
