@@ -34,7 +34,7 @@ class ChatMessageCreate(ChatMessageBase):
 class ChatMessageResponse(ChatMessageBase):
     chat_message_id: UUID
     timestamp: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -48,6 +48,7 @@ class AIChatResponse(BaseModel):
     response: str
     audio_response: Optional[str] = None  # Base64 encoded audio
     sentiment_analysis: Optional[Dict[str, Any]] = None
+    extracted_keywords: Optional[List[str]] = None
 
 # Notification schemas
 class NotificationBase(BaseModel):
@@ -66,7 +67,7 @@ class NotificationResponse(NotificationBase):
     notification_id: UUID
     status: NotificationStatusEnum
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -108,7 +109,7 @@ class DiaryEntryResponse(DiaryEntryBase):
     event_id: UUID
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -144,7 +145,7 @@ class TimelineEventResponse(TimelineEventBase):
     event_id: UUID
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -153,7 +154,7 @@ class TimelineResponse(TimelineBase):
     created_at: datetime
     updated_at: datetime
     events: Optional[List[TimelineEventResponse]] = None
-    
+
     class Config:
         from_attributes = True
 

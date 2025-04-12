@@ -1,12 +1,13 @@
 import os
+import json
 import tempfile
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Any, List, Tuple
 import openai
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
 from app.config import settings
-from app.models.communication import ChatMessage, MessageTypeEnum
+from app.models.communication import ChatMessage
 from app.schemas.communication import AIChatRequest, AIChatResponse
 from app.utils.audio import AudioProcessor
 
@@ -36,8 +37,8 @@ class AIChatService:
             # If audio is provided, transcribe it
             text_input = await AIChatService._transcribe_audio(request.audio_file)
 
-        # Generate AI response
-        ai_response = await AIChatService._generate_ai_response(text_input)
+        # Generate AI response and extract keywords
+        ai_response, extracted_keywords = await AIChatService._generate_ai_response(text_input)
 
         # Analyze sentiment
         sentiment_analysis = await AIChatService._analyze_sentiment(text_input)
@@ -49,13 +50,14 @@ class AIChatService:
 
         # Save the conversation to the database
         AIChatService._save_conversation(
-            db, request.user_id, text_input, ai_response
+            db, request.user_id, text_input, ai_response, extracted_keywords
         )
 
         return AIChatResponse(
             response=ai_response,
             audio_response=audio_response,
-            sentiment_analysis=sentiment_analysis
+            sentiment_analysis=sentiment_analysis,
+            extracted_keywords=extracted_keywords
         )
 
     @staticmethod
@@ -96,7 +98,7 @@ class AIChatService:
             return "Sorry, I couldn't transcribe your audio."
 
     @staticmethod
-    async def _generate_ai_response(text_input: str) -> str:
+    async def _generate_ai_response(text_input: str) -> tuple:
         """
         Generate an AI response using OpenAI.
 
@@ -104,29 +106,53 @@ class AIChatService:
             text_input: User input text
 
         Returns:
-            AI generated response
+            Tuple of (AI generated response, extracted keywords)
         """
+        # Define the system prompt
+        system_prompt = '''
+        You are a mental health AI assistant. Respond like a compassionate psychiatrist — short, simple, supportive sentences.
+        extract the keywords from user message and not from system generated
+
+        ❗Reply ONLY in this JSON structure:
+        {
+          "response": "<short, empathetic reply>",
+          "extracted_keywords": ["<keyword1>", "<keyword2>"]
+        }
+        Only output the JSON (no explanation, no markdown).
+        '''
+
         # Check if OpenAI API key is set
         if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.startswith("sk-") and len(settings.OPENAI_API_KEY) < 50:
             print("OpenAI API key is not set or invalid, using mock response")
             # Use a mock response for testing
+            response_text = ""
+            extracted_keywords = []
+
             if "anxiety" in text_input.lower() or "anxious" in text_input.lower():
-                return "I understand you're feeling anxious. Deep breathing exercises can help. Try breathing in for 4 counts, holding for 4, and exhaling for 6. Would you like more coping strategies?"
+                response_text = "I understand you're feeling anxious. Deep breathing exercises can help. Try breathing in for 4 counts, holding for 4, and exhaling for 6. Would you like more coping strategies?"
+                extracted_keywords = ["anxiety", "anxious", "breathing", "coping"]
             elif "depression" in text_input.lower() or "sad" in text_input.lower():
-                return "I'm sorry to hear you're feeling down. Remember that it's okay to not be okay sometimes. Have you tried talking to someone you trust about how you're feeling?"
+                response_text = "I'm sorry to hear you're feeling down. Remember that it's okay to not be okay sometimes. Have you tried talking to someone you trust about how you're feeling?"
+                extracted_keywords = ["depression", "sad", "down", "feelings"]
             elif "stress" in text_input.lower() or "overwhelmed" in text_input.lower():
-                return "It sounds like you're dealing with a lot of stress. Taking small breaks throughout the day and practicing mindfulness can help manage overwhelming feelings."
+                response_text = "It sounds like you're dealing with a lot of stress. Taking small breaks throughout the day and practicing mindfulness can help manage overwhelming feelings."
+                extracted_keywords = ["stress", "overwhelmed", "mindfulness", "breaks"]
             elif "sleep" in text_input.lower() or "insomnia" in text_input.lower():
-                return "Sleep issues can be challenging. Try establishing a consistent sleep schedule and creating a relaxing bedtime routine. Avoiding screens an hour before bed can also help."
+                response_text = "Sleep issues can be challenging. Try establishing a consistent sleep schedule and creating a relaxing bedtime routine. Avoiding screens an hour before bed can also help."
+                extracted_keywords = ["sleep", "insomnia", "routine", "screens"]
             else:
-                return f"Thank you for sharing that with me. I'm here to support you with your mental health concerns. Could you tell me more about how you've been feeling lately?"
+                response_text = f"Thank you for sharing that with me. I'm here to support you with your mental health concerns. Could you tell me more about how you've been feeling lately?"
+                # Extract simple keywords from user input
+                extracted_keywords = [word for word in text_input.lower().split() if len(word) > 4][:3]
+
+            return response_text, extracted_keywords
 
         try:
-            # Call OpenAI API
+            # Call OpenAI API with the specified system prompt
             response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "You are a helpful healthcare assistant specializing in mental health support. Provide empathetic, supportive responses that are concise and helpful. Focus on evidence-based approaches and gentle encouragement."},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": text_input}
                 ],
                 max_tokens=500,
@@ -134,20 +160,47 @@ class AIChatService:
             )
 
             # Extract the response text
-            return response.choices[0].message.content.strip()
+            ai_response = response.choices[0].message.content.strip()
+
+            # Clean formatting if GPT returns with ```json
+            ai_response = ai_response.strip('```json').strip('```').strip()
+
+            try:
+                # Parse the JSON response
+                parsed_response = json.loads(ai_response)
+                response_text = parsed_response.get("response", "")
+                extracted_keywords = parsed_response.get("extracted_keywords", [])
+
+                return response_text, extracted_keywords
+            except json.JSONDecodeError as e:
+                print(f"Error parsing JSON response: {str(e)}")
+                print(f"Raw response: {ai_response}")
+                # If JSON parsing fails, return the raw response and extract keywords manually
+                extracted_keywords = [word for word in text_input.lower().split() if len(word) > 4][:3]
+                return ai_response, extracted_keywords
+
         except Exception as e:
             # Handle any errors
             print(f"Error generating AI response: {str(e)}")
 
             # Provide a more helpful fallback response
+            response_text = ""
+            extracted_keywords = []
+
             if "anxiety" in text_input.lower():
-                return "I understand anxiety can be challenging. Deep breathing and grounding exercises may help. Would you like to know more about these techniques?"
+                response_text = "I understand anxiety can be challenging. Deep breathing and grounding exercises may help. Would you like to know more about these techniques?"
+                extracted_keywords = ["anxiety", "breathing", "grounding"]
             elif "depression" in text_input.lower():
-                return "I hear that you're struggling with feelings of depression. Remember that seeking support is a sign of strength, not weakness. Have you considered talking to a mental health professional?"
+                response_text = "I hear that you're struggling with feelings of depression. Remember that seeking support is a sign of strength, not weakness. Have you considered talking to a mental health professional?"
+                extracted_keywords = ["depression", "support", "strength"]
             elif "stress" in text_input.lower():
-                return "Managing stress is important for your wellbeing. Regular exercise, adequate sleep, and mindfulness practices can all help reduce stress levels."
+                response_text = "Managing stress is important for your wellbeing. Regular exercise, adequate sleep, and mindfulness practices can all help reduce stress levels."
+                extracted_keywords = ["stress", "exercise", "sleep", "mindfulness"]
             else:
-                return "I'm here to support you with your mental health concerns. While I'm having some technical difficulties right now, please know that your wellbeing matters. Consider reaching out to a healthcare provider if you need immediate assistance."
+                response_text = "I'm here to support you with your mental health concerns. While I'm having some technical difficulties right now, please know that your wellbeing matters. Consider reaching out to a healthcare provider if you need immediate assistance."
+                extracted_keywords = ["support", "wellbeing", "assistance"]
+
+            return response_text, extracted_keywords
 
     @staticmethod
     async def _analyze_sentiment(text: str) -> Dict[str, Any]:
@@ -347,7 +400,7 @@ class AIChatService:
 
     @staticmethod
     def _save_conversation(
-        db: Session, user_id: str, user_message: str, ai_response: str
+        db: Session, user_id: str, user_message: str, ai_response: str, extracted_keywords: list = None
     ) -> None:
         """
         Save the conversation to the database.
@@ -357,6 +410,7 @@ class AIChatService:
             user_id: User ID
             user_message: User message
             ai_response: AI response
+            extracted_keywords: Keywords extracted from the user message
         """
         # Save user message
         user_chat = ChatMessage(
@@ -366,10 +420,11 @@ class AIChatService:
         )
         db.add(user_chat)
 
-        # Save AI response
+        # Save AI response with extracted keywords
         ai_chat = ChatMessage(
             receiver_id=user_id,
             message_text=ai_response,
+            extracted_keywords=extracted_keywords if extracted_keywords else [],
             timestamp=func.now()
         )
         db.add(ai_chat)
